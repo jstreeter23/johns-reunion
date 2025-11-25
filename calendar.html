@@ -1,0 +1,30 @@
+<section id="view-calendar" class="page-view animate-fade-in">
+    <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-5xl font-serif font-bold mb-4">Upcoming Dates</h2>
+        <p class="text-sand-500 dark:text-sand-400">Tap an event for details.</p>
+    </div>
+    <div class="max-w-3xl mx-auto relative">
+        <div class="absolute left-8 top-0 bottom-0 w-0.5 bg-sand-300 dark:bg-sand-700"></div>
+        <div class="relative pl-24 py-6 group cursor-pointer" onclick="openModal('monthly-dec')">
+            <div class="absolute left-2 top-6 w-12 h-12 bg-brand-600 rounded-xl flex flex-col items-center justify-center text-white shadow-lg border-4 border-sand-50 dark:border-sand-900 z-10">
+                <span class="text-[10px] uppercase font-bold">Dec</span><span class="text-lg font-bold leading-none">14</span>
+            </div>
+            <div class="bg-white dark:bg-sand-800 p-6 rounded-2xl border border-sand-200 dark:border-sand-700 shadow-sm hover:shadow-md transition-all group-hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-xl font-bold font-serif">Family Update Meeting</h3>
+                    <span class="bg-brand-100 dark:bg-brand-900 text-brand-800 dark:text-brand-300 text-xs font-bold px-3 py-1 rounded-full">4:00 PM</span>
+                </div>
+                <p class="text-sand-500 dark:text-sand-400 mb-4">Monthly all-family update via Zoom.</p>
+            </div>
+        </div>
+        <div class="relative pl-24 py-6 group cursor-pointer" onclick="openModal('planning-dec')">
+            <div class="absolute left-2 top-6 w-12 h-12 bg-white dark:bg-sand-700 text-sand-800 dark:text-sand-200 rounded-xl flex flex-col items-center justify-center shadow border-4 border-sand-50 dark:border-sand-900 z-10">
+                <span class="text-[10px] uppercase font-bold">Dec</span><span class="text-lg font-bold leading-none">28</span>
+            </div>
+            <div class="bg-white dark:bg-sand-800 p-6 rounded-2xl border border-sand-200 dark:border-sand-700 shadow-sm hover:shadow-md transition-all group-hover:-translate-y-1">
+                <h3 class="text-xl font-bold font-serif">Planning Committee</h3>
+                <p class="text-sand-500 dark:text-sand-400 mt-2">Logistics & Food planning.</p>
+            </div>
+        </div>
+    </div>
+</section>

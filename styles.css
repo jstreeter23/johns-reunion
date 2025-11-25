@@ -1,0 +1,9 @@
+/* Hide scrollbar for gallery but keep functionality */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom checkbox styles */
+.custom-checkbox:checked {
+    background-color: #4d7d67;
+    border-color: #4d7d67;
+}

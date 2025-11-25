@@ -1,0 +1,35 @@
+<section id="view-attendance" class="page-view animate-fade-in">
+    <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-10">
+            <h2 class="text-3xl md:text-4xl font-serif font-bold mb-3">Who's Coming?</h2>
+        </div>
+        <div class="bg-white dark:bg-sand-800 rounded-[2rem] shadow-xl border border-sand-200 dark:border-sand-700 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-sand-100 dark:bg-sand-900 border-b border-sand-200">
+                        <tr>
+                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Name</th>
+                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Branch</th>
+                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Signed Up</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 transition-colors">
+                            <td class="py-4 px-6 font-bold text-sand-900 dark:text-white">Marcus Robinson</td>
+                            <td class="py-4 px-6 text-sand-600">William Johns</td>
+                            <td class="py-4 px-6 text-sand-500">Oct 12, 2025</td>
+                        </tr>
+                        <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 transition-colors">
+                            <td class="py-4 px-6 font-bold text-sand-900 dark:text-white">Sarah Jenkins</td>
+                            <td class="py-4 px-6 text-sand-600">Alice Walker</td>
+                            <td class="py-4 px-6 text-sand-500">Oct 14, 2025</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="bg-brand-50 dark:bg-brand-900/20 p-6 text-center border-t border-brand-100 dark:border-brand-800/30">
+                <button onclick="route(null, 'register')" class="text-brand-700 dark:text-brand-400 font-bold hover:underline flex items-center justify-center gap-2">Register now <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+    </div>
+</section>

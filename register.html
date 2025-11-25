@@ -1,0 +1,80 @@
+<section id="view-register" class="page-view animate-fade-in">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white dark:bg-sand-800 rounded-[2rem] p-8 md:p-12 shadow-2xl border border-sand-200 dark:border-sand-700">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-100 dark:bg-brand-900/50 rounded-full mb-4 text-brand-600"><i data-lucide="clipboard-check" class="w-8 h-8"></i></div>
+                <h2 class="text-3xl font-serif font-bold">Participant Information Form</h2>
+                <p class="text-sand-500 dark:text-sand-400 mt-2">Please fill out all required fields marked with *</p>
+            </div>
+
+            <form onsubmit="handleRegistration(event)" class="space-y-8">
+                <div class="space-y-6">
+                    <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Contact Details</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Full Name *</label><input type="text" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Email *</label><input type="email" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Mobile (Text Group) *</label><input type="tel" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Alt. Phone</label><input type="tel" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    </div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Address</label><input type="text" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                </div>
+
+                <div class="space-y-6 pt-4">
+                    <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Family Information</h3>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Family Branch *</label>
+                        <select required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            <option value="" disabled selected>Choose Descendant of...</option>
+                            <option>William Johns</option>
+                            <option>L.C. Johns</option>
+                            <option>Alice Walker</option>
+                            <option>Stephen Johns</option>
+                            <option>Roger Johns</option>
+                            <option>Bennie Johns</option>
+                            <option>Larry Johns</option>
+                            <option>Milton Johns</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Parents' Names</label><input type="text" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                </div>
+
+                <div class="space-y-6 pt-4">
+                    <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Attendance</h3>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Household Members Attending</label><input type="number" min="1" class="w-24 bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Names & Ages *</label><textarea required rows="3" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></textarea></div>
+                </div>
+
+                <div class="space-y-6 pt-4">
+                    <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Planning Committee</h3>
+                    <div>
+                        <label class="block text-sm font-bold text-sand-800 dark:text-sand-100 mb-3">Serve on Committee? *</label>
+                        <div class="flex gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="committee" value="yes" class="w-4 h-4 text-brand-600 focus:ring-brand-500 border-gray-300"><span>Yes</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="committee" value="no" class="w-4 h-4 text-brand-600 focus:ring-brand-500 border-gray-300"><span>No</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="committee" value="maybe" class="w-4 h-4 text-brand-600 focus:ring-brand-500 border-gray-300"><span>Maybe</span></label>
+                        </div>
+                    </div>
+                    <div class="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-xl border border-brand-100 dark:border-brand-800/30">
+                        <label class="block text-sm font-bold text-sand-800 dark:text-sand-100 mb-4">If Yes/Maybe, select areas:</label>
+                        <div class="grid md:grid-cols-2 gap-3">
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Activities & Games</span></label>
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Venue/Logistics</span></label>
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Communications</span></label>
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Food & Catering</span></label>
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Finance/Fundraising</span></label>
+                            <label class="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"><input type="checkbox" class="w-5 h-5 rounded border-gray-300 text-brand-600"><span class="text-sm">Technology</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full py-4 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                        <span>Submit Registration</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>John's Family Reunion 2026</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f4f7f5', 100: '#e3ebe6', 200: '#c5d9ce', 300: '#9abbad',
+                            400: '#6e9885', 500: '#4d7d67', 600: '#3a6351', 700: '#304f41',
+                            800: '#273f35', 900: '#21342c',
+                        },
+                        sand: {
+                            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 800: '#292524', 900: '#1c1917',
+                        }
+                    },
+                    animation: { 'fade-in': 'fadeIn 0.3s ease-out forwards' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-sand-50 dark:bg-sand-900 text-sand-800 dark:text-sand-100 font-sans transition-colors duration-300 min-h-screen flex flex-col">
+
+    <nav class="fixed w-full z-50 top-0 start-0 border-b border-sand-200 dark:border-sand-800 bg-sand-50/80 dark:bg-sand-900/80 backdrop-blur-md transition-colors duration-300">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-4">
+            <a href="#" onclick="route(event, 'home')" class="flex items-center space-x-3 rtl:space-x-reverse group">
+                <div class="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-white shadow-lg group-hover:bg-brand-500 transition-colors">
+                    <span class="font-serif font-bold text-xl">J</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="self-center text-lg font-serif font-bold whitespace-nowrap text-brand-900 dark:text-white leading-tight">The Johns Reunion</span>
+                    <span class="text-[10px] uppercase tracking-[0.2em] font-bold text-brand-600 dark:text-brand-400">Brownsville 2026</span>
+                </div>
+            </a>
+            <button onclick="toggleMobileMenu()" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-sand-500 rounded-lg md:hidden hover:bg-sand-100 dark:text-sand-400 dark:hover:bg-sand-800 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <i data-lucide="menu"></i>
+            </button>
+            <div class="hidden w-full md:block md:w-auto" id="navbar-default">
+                <ul class="font-medium flex flex-col p-4 md:p-0 mt-4 border border-sand-100 rounded-lg bg-sand-50 md:flex-row md:items-center md:space-x-8 rtl:space-x-reverse md:mt-0 md:border-0 md:bg-transparent dark:bg-sand-800 md:dark:bg-transparent dark:border-sand-700">
+                    <li>
+                        <button onclick="toggleTheme()" class="p-2 rounded-full text-sand-500 hover:bg-sand-200 dark:hover:bg-sand-700 transition-all duration-300 hover:scale-110 hover:text-brand-600 dark:hover:text-brand-400 group">
+                            <i data-lucide="moon" id="theme-icon" class="w-5 h-5 transition-transform group-hover:rotate-12"></i>
+                        </button>
+                    </li>
+                    <li><a href="#" onclick="route(event, 'home')" id="nav-home" class="nav-link block py-2 px-3 text-brand-700 rounded md:p-0 dark:text-white transition-colors">Home</a></li>
+                    <li><a href="#" onclick="route(event, 'calendar')" id="nav-calendar" class="nav-link block py-2 px-3 text-sand-600 rounded md:p-0 dark:text-sand-300 transition-colors">Calendar</a></li>
+                    <li><a href="#" onclick="route(event, 'ideas')" id="nav-ideas" class="nav-link block py-2 px-3 text-sand-600 rounded md:p-0 dark:text-sand-300 transition-colors">Ideas</a></li>
+                    <li><a href="#" onclick="route(event, 'attendance')" id="nav-attendance" class="nav-link block py-2 px-3 text-sand-600 rounded md:p-0 dark:text-sand-300 transition-colors">Attendance</a></li>
+                    <li class="md:ml-4"><a href="#" onclick="route(event, 'register')" class="text-white bg-brand-700 hover:bg-brand-800 font-medium rounded-full text-sm px-5 py-2.5 shadow-lg transition-all transform hover:-translate-y-0.5 inline-block">Register</a></li>
+                </ul>
+            </div>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-sand-50 dark:bg-sand-900 border-t border-sand-200 dark:border-sand-800 absolute w-full left-0 px-4 py-4 shadow-xl">
+            <div class="flex flex-col space-y-3">
+                <a href="#" onclick="route(event, 'home')" class="nav-link-mobile p-3 rounded-lg hover:bg-sand-100 dark:hover:bg-sand-800 font-medium">Home</a>
+                <a href="#" onclick="route(event, 'calendar')" class="nav-link-mobile p-3 rounded-lg hover:bg-sand-100 dark:hover:bg-sand-800 font-medium">Calendar</a>
+                <a href="#" onclick="route(event, 'ideas')" class="nav-link-mobile p-3 rounded-lg hover:bg-sand-100 dark:hover:bg-sand-800 font-medium">Ideas</a>
+                <a href="#" onclick="route(event, 'attendance')" class="nav-link-mobile p-3 rounded-lg hover:bg-sand-100 dark:hover:bg-sand-800 font-medium">Attendance</a>
+                <a href="#" onclick="route(event, 'register')" class="p-3 rounded-lg bg-brand-600 text-white text-center font-bold shadow-md">Register Now</a>
+            </div>
+        </div>
+    </nav>
+
+    <main id="page-content" class="flex-grow pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto w-full"></main>
+
+    <div id="event-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-sand-900/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-sand-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-sand-200 dark:border-sand-700">
+                    <div class="absolute right-4 top-4 z-20">
+                        <button type="button" onclick="closeModal()" class="rounded-full p-2 bg-sand-100 dark:bg-sand-800 text-sand-500 hover:text-brand-600 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="p-6 sm:p-8">
+                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 mb-6"><i data-lucide="calendar-check" class="h-7 w-7 text-brand-600 dark:text-brand-400"></i></div>
+                        <div class="mt-3 text-center sm:mt-5">
+                            <h3 class="text-2xl font-serif font-bold leading-6 text-sand-900 dark:text-white" id="modal-title">Event Title</h3>
+                            <div class="mt-4 flex flex-col gap-4">
+                                <div><p class="text-sm font-bold text-brand-600 dark:text-brand-400 mb-2 uppercase tracking-wide" id="modal-time">Time</p><p class="text-base text-sand-600 dark:text-sand-300" id="modal-desc">Description</p></div>
+                                <div class="bg-sand-50 dark:bg-sand-800/50 rounded-xl p-4 text-left flex items-start gap-3">
+                                    <i data-lucide="map-pin" class="w-5 h-5 text-sand-400 mt-0.5 shrink-0"></i>
+                                    <div><p class="text-xs font-bold uppercase text-sand-400 mb-0.5">Location</p><p class="text-sm font-medium text-sand-800 dark:text-sand-200" id="modal-loc">Location Name</p></div>
+                                </div>
+                                <div class="bg-brand-50 dark:bg-brand-900/20 rounded-xl p-4 text-left border border-brand-100 dark:border-brand-800/30">
+                                    <p class="text-xs font-bold uppercase text-brand-600 dark:text-brand-400 mb-1 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Details</p>
+                                    <p class="text-sm text-brand-900 dark:text-brand-100" id="modal-extra">Extra info</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-sand-50 dark:bg-sand-950 px-4 py-4 sm:px-6">
+                        <button type="button" class="w-full inline-flex justify-center rounded-xl bg-brand-600 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-500 transition-colors" onclick="closeModal()">Close Details</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white dark:bg-sand-950 border-t border-sand-200 dark:border-sand-800 py-8 text-center text-sand-500 text-sm">
+        <p>&copy; 2026 Johns Family Reunion Committee</p>
+        <p class="mt-1">Questions? Email us at hello@johnsreunion.com</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

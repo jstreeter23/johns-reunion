@@ -6,7 +6,7 @@ A modern, responsive website built for the upcoming Johns Family Reunion. This p
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 🚀 Live Demo
-**[View the Live Site Here](https://jstreeter23.github.io/johns-reunion/)** *(Note: Replace the link above with your actual GitHub Pages URL)*
+**[View the Live Site Here](https://jstreeter23.github.io/johns-reunion/)** 
 
 ## ✨ Features
 

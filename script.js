@@ -595,8 +595,9 @@ function openUserModal(userId) {
     lucide.createIcons();
 }
 
-// Cache for Supabase registrations
+// Cache for Supabase registrations and all attendees
 let cachedRegistrations = [];
+let allAttendees = [];
 
 async function loadAttendanceTable() {
     const attendanceTable = document.getElementById('attendance-table-body');
@@ -609,13 +610,13 @@ async function loadAttendanceTable() {
     // Try to get registrations from Supabase first
     const result = await getRegistrationsFromSupabase();
     
-    let allUsers = [];
+    allAttendees = [];
     
     if (result.success && result.data) {
         // Use Supabase data
         console.log('✅ Loaded', result.data.length, 'registrations from Supabase');
         cachedRegistrations = result.data;
-        allUsers = result.data.map(reg => ({
+        allAttendees = result.data.map(reg => ({
             id: reg.id,
             name: reg.name,
             branch: reg.branch,
@@ -626,21 +627,21 @@ async function loadAttendanceTable() {
         // Supabase not configured - fall back to localStorage
         console.log('⚠️ Supabase not configured, loading from localStorage');
         const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
-        allUsers = [...registrations];
+        allAttendees = [...registrations];
     } else {
         // Supabase error - fall back to localStorage
         console.error('❌ Error loading from Supabase:', result.error);
         const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
-        allUsers = [...registrations];
+        allAttendees = [...registrations];
     }
     
     // Add hardcoded users if not present (for demo purposes)
     const hardcodedUserIds = ['marcus-robinson', 'sarah-jenkins'];
     hardcodedUserIds.forEach(userId => {
-        if (!allUsers.find(r => r.id === userId || (r.name && r.name.toLowerCase().replace(/\s+/g, '-') === userId))) {
+        if (!allAttendees.find(r => r.id === userId || (r.name && r.name.toLowerCase().replace(/\s+/g, '-') === userId))) {
             const user = userData[userId];
             if (user) {
-                allUsers.push({
+                allAttendees.push({
                     id: userId,
                     name: user.name,
                     branch: user.branch,
@@ -651,21 +652,53 @@ async function loadAttendanceTable() {
     });
     
     // Sort by sign-up date (most recent first)
-    allUsers.sort((a, b) => {
+    allAttendees.sort((a, b) => {
         const dateA = a.created_at ? new Date(a.created_at) : new Date(a.signedUp);
         const dateB = b.created_at ? new Date(b.created_at) : new Date(b.signedUp);
         return dateB - dateA;
     });
     
+    // Render table with current filter
+    filterAttendanceByBranch();
+}
+
+function filterAttendanceByBranch() {
+    const attendanceTable = document.getElementById('attendance-table-body');
+    const countDisplay = document.getElementById('attendance-count');
+    const filterSelect = document.getElementById('branch-filter');
+    
+    if (!attendanceTable) return;
+    
+    const selectedBranch = filterSelect ? filterSelect.value : 'all';
+    
+    // Filter users based on selected branch
+    let filteredUsers = allAttendees;
+    if (selectedBranch !== 'all') {
+        filteredUsers = allAttendees.filter(user => user.branch === selectedBranch);
+    }
+    
+    // Update count display
+    if (countDisplay) {
+        if (selectedBranch === 'all') {
+            countDisplay.textContent = `${allAttendees.length} attendee${allAttendees.length !== 1 ? 's' : ''} registered`;
+        } else {
+            countDisplay.textContent = `${filteredUsers.length} attendee${filteredUsers.length !== 1 ? 's' : ''} from ${selectedBranch}`;
+        }
+    }
+    
     // Generate table rows
     let tableHTML = '';
-    if (allUsers.length === 0) {
-        tableHTML = '<tr><td colspan="3" class="py-8 text-center text-sand-500">No registrations yet. Be the first to register!</td></tr>';
+    if (filteredUsers.length === 0) {
+        if (selectedBranch === 'all') {
+            tableHTML = '<tr><td colspan="3" class="py-8 text-center text-sand-500">No registrations yet. Be the first to register!</td></tr>';
+        } else {
+            tableHTML = `<tr><td colspan="3" class="py-8 text-center text-sand-500">No attendees from ${selectedBranch} yet.</td></tr>`;
+        }
     } else {
-        allUsers.forEach(user => {
+        filteredUsers.forEach(user => {
             const oderId = user.id || user.name.toLowerCase().replace(/\s+/g, '-');
             tableHTML += `
-                <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 transition-colors cursor-pointer" onclick="openUserModal('${oderId}')">
+                <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 dark:hover:bg-sand-700 transition-colors cursor-pointer" onclick="openUserModal('${oderId}')">
                     <td class="py-4 px-6 font-bold text-sand-900 dark:text-white">${user.name}</td>
                     <td class="py-4 px-6 text-sand-600 dark:text-sand-400">${user.branch}</td>
                     <td class="py-4 px-6 text-sand-500 dark:text-sand-400">${user.signedUp}</td>
@@ -675,6 +708,7 @@ async function loadAttendanceTable() {
     }
     
     attendanceTable.innerHTML = tableHTML;
+    lucide.createIcons();
 }
 
 function closeUserModal() {

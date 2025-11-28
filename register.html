@@ -11,21 +11,21 @@
                 <div class="space-y-6">
                     <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Contact Details</h3>
                     <div class="grid md:grid-cols-2 gap-6">
-                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Full Name *</label><input type="text" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
-                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Email *</label><input type="email" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Full Name *</label><input type="text" id="full-name" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Email *</label><input type="email" id="email" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
                     </div>
                     <div class="grid md:grid-cols-2 gap-6">
-                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Mobile (Text Group) *</label><input type="tel" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
-                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Alt. Phone</label><input type="tel" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Mobile (Text Group) *</label><input type="tel" id="mobile" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Alt. Phone</label><input type="tel" id="alt-phone" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
                     </div>
-                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Address</label><input type="text" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Address</label><input type="text" id="address" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
                 </div>
 
                 <div class="space-y-6 pt-4">
                     <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Family Information</h3>
                     <div>
                         <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Family Branch *</label>
-                        <select required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                        <select required id="family-branch" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
                             <option value="" disabled selected>Choose Descendant of...</option>
                             <option>William Johns</option>
                             <option>L.C. Johns</option>
@@ -37,13 +37,46 @@
                             <option>Milton Johns</option>
                         </select>
                     </div>
-                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Parents' Names</label><input type="text" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Parents' Names</label><input type="text" id="parents-names" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                        <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Birthday</label><input type="date" id="birthday" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Shirt Size</label>
+                        <select id="shirt-size" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            <option value="" disabled selected>Select shirt size...</option>
+                            <option value="Small">Small</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Large">Large</option>
+                            <option value="XL">XL</option>
+                            <option value="2XL">2XL</option>
+                            <option value="3XL">3XL</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Profile Photo (Optional)</label>
+                        <div class="mt-2">
+                            <input type="file" id="profile-photo" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
+                            <label for="profile-photo" class="cursor-pointer inline-flex items-center gap-2 px-4 py-3 bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl hover:bg-sand-100 dark:hover:bg-sand-900 transition-colors">
+                                <i data-lucide="camera" class="w-5 h-5 text-sand-500"></i>
+                                <span class="text-sm text-sand-700 dark:text-sand-300">Choose Photo</span>
+                            </label>
+                            <div id="photo-preview" class="mt-3 hidden">
+                                <div class="relative inline-block">
+                                    <img id="photo-preview-image" src="" alt="Preview" class="w-24 h-24 object-cover rounded-xl border-2 border-sand-200 dark:border-sand-700">
+                                    <button type="button" onclick="removePhoto()" class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="space-y-6 pt-4">
                     <h3 class="text-xl font-bold font-serif border-b border-sand-200 dark:border-sand-700 pb-2 mb-4">Attendance</h3>
-                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Household Members Attending</label><input type="number" min="1" class="w-24 bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
-                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Names & Ages *</label><textarea required rows="3" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></textarea></div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Household Members Attending</label><input type="number" id="household-members" min="1" class="w-24 bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></div>
+                    <div><label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Names & Ages *</label><textarea id="names-ages" required rows="3" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></textarea></div>
                 </div>
 
                 <div class="space-y-6 pt-4">

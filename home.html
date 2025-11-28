@@ -8,9 +8,17 @@
             <span class="inline-block py-1 px-3 rounded-full bg-brand-800 border border-brand-700 text-brand-200 text-xs font-bold uppercase tracking-widest mb-6">July 14 — 16, 2026</span>
             <h1 class="text-4xl md:text-6xl font-serif font-bold mb-6 leading-tight">Rooted in Love,<br>Growing Together.</h1>
             <p class="text-lg md:text-xl text-brand-100 mb-10 font-light leading-relaxed">Join us for a weekend of heritage and happiness in Brownsville.</p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                 <button onclick="route(null, 'register')" class="px-8 py-4 bg-white text-brand-900 rounded-full font-bold hover:bg-brand-50 transition-colors shadow-lg">RSVP Now</button>
                 <button onclick="route(null, 'calendar')" class="px-8 py-4 bg-transparent border border-brand-600 text-white rounded-full font-bold hover:bg-brand-800 transition-colors">View Schedule</button>
+            </div>
+            <div id="countdown-ticker" class="mt-6">
+                <div class="inline-flex items-center gap-2 px-6 py-3 bg-brand-800/50 backdrop-blur-sm border border-brand-700 rounded-full">
+                    <i data-lucide="calendar-days" class="w-5 h-5 text-brand-200"></i>
+                    <span class="text-brand-100 text-sm md:text-base font-medium">
+                        <span id="days-left" class="font-bold text-white">0</span> days until the reunion
+                    </span>
+                </div>
             </div>
         </div>
     </div>
@@ -27,21 +35,21 @@
             </div>
         </div>
         <div id="gallery-scroll" class="flex gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-6 px-1">
-            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800">
-                <img src="https://placehold.co/600x400/3a6351/FFFFFF?text=Family+Picnic+2024" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
+            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800" onclick="openPhotoModal(0)">
+                <img src="https://images.unsplash.com/photo-1522770179533-24471fcdba45?w=800&h=600&fit=crop" alt="Family Picnic" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
                     <span class="text-brand-200 text-xs font-bold uppercase tracking-wider mb-1">Last Year</span>
                     <h3 class="text-white font-serif font-bold text-xl">The Big Picnic</h3>
                 </div>
             </div>
-            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800">
-                <img src="https://placehold.co/600x400/4d7d67/FFFFFF?text=Fish+Fry" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
+            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800" onclick="openPhotoModal(1)">
+                <img src="https://images.unsplash.com/photo-1544025162-d76694265947?w=800&h=600&fit=crop" alt="Fish Fry" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
                     <h3 class="text-white font-serif font-bold text-xl">Uncle Ray's Fish Fry</h3>
                 </div>
             </div>
-            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800">
-                <img src="https://placehold.co/600x400/6e9885/FFFFFF?text=Talent+Show" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
+            <div class="snap-center shrink-0 w-[85vw] md:w-[28rem] relative rounded-[1.5rem] overflow-hidden shadow-lg group cursor-pointer border border-sand-100 dark:border-sand-800" onclick="openPhotoModal(2)">
+                <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&h=600&fit=crop" alt="Talent Show" class="w-full h-64 md:h-80 object-cover transition-transform duration-700 group-hover:scale-110">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
                     <h3 class="text-white font-serif font-bold text-xl">Talent Show Night</h3>
                 </div>

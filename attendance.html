@@ -1,49 +1,87 @@
 <section id="view-attendance" class="page-view animate-fade-in">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
         <div class="text-center mb-6">
             <h2 class="text-3xl md:text-4xl font-serif font-bold mb-3">Who's Coming?</h2>
             <p id="attendance-count" class="text-sand-500 dark:text-sand-400"></p>
         </div>
         
-        <!-- Filter Controls -->
-        <div class="mb-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div class="flex items-center gap-3">
-                <label class="text-sm font-bold text-sand-600 dark:text-sand-400">Filter by Branch:</label>
-                <select id="branch-filter" onchange="filterAttendanceByBranch()" class="bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-700 rounded-xl px-4 py-2 text-sm outline-none focus:border-brand-500 transition-all">
-                    <option value="all">All Branches</option>
-                    <option value="William Johns">William Johns</option>
-                    <option value="L.C. Johns">L.C. Johns</option>
-                    <option value="Alice Walker">Alice Walker</option>
-                    <option value="Stephen Johns">Stephen Johns</option>
-                    <option value="Roger Johns">Roger Johns</option>
-                    <option value="Bennie Johns">Bennie Johns</option>
-                    <option value="Larry Johns">Larry Johns</option>
-                    <option value="Milton Johns">Milton Johns</option>
-                </select>
-            </div>
-            <button onclick="filterAttendanceByBranch()" class="text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+        <!-- Tab Navigation -->
+        <div class="flex justify-center gap-2 mb-6">
+            <button id="tab-map" onclick="switchAttendanceView('map')" class="px-6 py-3 rounded-full font-medium transition-all bg-brand-600 text-white shadow-md flex items-center gap-2">
+                <i data-lucide="map" class="w-4 h-4"></i> Map
+            </button>
+            <button id="tab-table" onclick="switchAttendanceView('table')" class="px-6 py-3 rounded-full font-medium transition-all bg-sand-200 dark:bg-sand-800 text-sand-700 dark:text-sand-300 hover:bg-sand-300 dark:hover:bg-sand-700 flex items-center gap-2">
+                <i data-lucide="table" class="w-4 h-4"></i> Table
             </button>
         </div>
         
-        <div class="bg-white dark:bg-sand-800 rounded-[2rem] shadow-xl border border-sand-200 dark:border-sand-700 overflow-hidden">
-            <!-- Scrollable table container with fixed height -->
-            <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-sand-100 dark:bg-sand-900 border-b border-sand-200 sticky top-0 z-10">
-                        <tr>
-                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Name</th>
-                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Branch</th>
-                            <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Signed Up</th>
-                        </tr>
-                    </thead>
-                    <tbody id="attendance-table-body" class="text-sm">
-                        <!-- Rows will be populated by loadAttendanceTable() -->
-                    </tbody>
-                </table>
+        <!-- Map View (Default) -->
+        <div id="attendance-map-view" class="bg-white dark:bg-sand-800 rounded-[2rem] shadow-xl border border-sand-200 dark:border-sand-700 overflow-hidden p-6">
+            <div class="text-center mb-4">
+                <p class="text-sm text-sand-500 dark:text-sand-400 flex items-center justify-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i> Hover over highlighted states to see who's attending from that area
+                </p>
             </div>
-            <div class="bg-brand-50 dark:bg-brand-900/20 p-6 text-center border-t border-brand-100 dark:border-brand-800/30">
-                <button onclick="route(null, 'register')" class="text-brand-700 dark:text-brand-400 font-bold hover:underline flex items-center justify-center gap-2">Register now <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            <div id="us-map-container" class="relative w-full max-w-3xl mx-auto">
+                <!-- Map will be rendered here -->
+            </div>
+            <div id="map-legend" class="mt-6 flex flex-wrap justify-center gap-4 text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-4 rounded bg-brand-600"></span>
+                    <span class="text-sand-600 dark:text-sand-400">Attendees from this state</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-4 h-4 rounded bg-sand-200 dark:bg-sand-700"></span>
+                    <span class="text-sand-600 dark:text-sand-400">No attendees yet</span>
+                </div>
+            </div>
+            <div class="mt-6 text-center">
+                <button onclick="route(null, 'register')" class="text-brand-700 dark:text-brand-400 font-bold hover:underline flex items-center justify-center gap-2 mx-auto">Register now <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+        
+        <!-- Table View -->
+        <div id="attendance-table-view" class="hidden">
+            <!-- Filter Controls -->
+            <div class="mb-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <label class="text-sm font-bold text-sand-600 dark:text-sand-400">Filter by Branch:</label>
+                    <select id="branch-filter" onchange="filterAttendanceByBranch()" class="bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-700 rounded-xl px-4 py-2 text-sm outline-none focus:border-brand-500 transition-all">
+                        <option value="all">All Branches</option>
+                        <option value="William Johns">William Johns</option>
+                        <option value="L.C. Johns">L.C. Johns</option>
+                        <option value="Alice Walker">Alice Walker</option>
+                        <option value="Stephen Johns">Stephen Johns</option>
+                        <option value="Roger Johns">Roger Johns</option>
+                        <option value="Bennie Johns">Bennie Johns</option>
+                        <option value="Larry Johns">Larry Johns</option>
+                        <option value="Milton Johns">Milton Johns</option>
+                    </select>
+                </div>
+                <button onclick="filterAttendanceByBranch()" class="text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh
+                </button>
+            </div>
+            
+            <div class="bg-white dark:bg-sand-800 rounded-[2rem] shadow-xl border border-sand-200 dark:border-sand-700 overflow-hidden">
+                <!-- Scrollable table container with fixed height -->
+                <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-sand-100 dark:bg-sand-900 border-b border-sand-200 sticky top-0 z-10">
+                            <tr>
+                                <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Name</th>
+                                <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Branch</th>
+                                <th class="py-5 px-6 font-bold text-sand-600 text-xs uppercase">Signed Up</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-table-body" class="text-sm">
+                            <!-- Rows will be populated by loadAttendanceTable() -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bg-brand-50 dark:bg-brand-900/20 p-6 text-center border-t border-brand-100 dark:border-brand-800/30">
+                    <button onclick="route(null, 'register')" class="text-brand-700 dark:text-brand-400 font-bold hover:underline flex items-center justify-center gap-2">Register now <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                </div>
             </div>
         </div>
     </div>

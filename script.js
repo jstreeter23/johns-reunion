@@ -31,10 +31,13 @@ async function route(event, viewId) {
             }, 100);
         }
         
-        // Load attendance table if attendance page is loaded
+        // Load attendance page (default to map view)
         if (viewId === 'attendance') {
-            setTimeout(() => {
-                loadAttendanceTable();
+            setTimeout(async () => {
+                // Load data first
+                await loadAttendanceTable();
+                // Then show map view (default)
+                switchAttendanceView('map');
             }, 100);
         }
     } catch (error) {
@@ -716,6 +719,256 @@ function filterAttendanceByBranch() {
     
     attendanceTable.innerHTML = tableHTML;
     lucide.createIcons();
+}
+
+// ============================================
+// ATTENDANCE MAP
+// ============================================
+
+// State abbreviations for parsing addresses
+const stateAbbreviations = {
+    'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+    'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+    'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+    'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+    'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
+    'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+    'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+    'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+    'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
+    'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+    'district of columbia': 'DC', 'dc': 'DC'
+};
+
+// Reverse lookup
+const stateNames = {
+    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+    'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+    'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+    'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+    'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+    'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+    'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+    'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming',
+    'DC': 'District of Columbia'
+};
+
+function parseStateFromAddress(address) {
+    if (!address) return null;
+    const addr = address.toUpperCase().trim();
+    
+    // Try to find 2-letter state code
+    const stateCodeMatch = addr.match(/\b([A-Z]{2})\b\s*\d{5}/) || addr.match(/,\s*([A-Z]{2})\b/) || addr.match(/\b([A-Z]{2})$/);
+    if (stateCodeMatch && stateNames[stateCodeMatch[1]]) {
+        return stateCodeMatch[1];
+    }
+    
+    // Try to find full state name
+    const lowerAddr = address.toLowerCase();
+    for (const [name, abbr] of Object.entries(stateAbbreviations)) {
+        if (lowerAddr.includes(name)) {
+            return abbr;
+        }
+    }
+    
+    return null;
+}
+
+function getAttendeesByState() {
+    const byState = {};
+    
+    // Get registrations with addresses
+    if (cachedRegistrations && cachedRegistrations.length > 0) {
+        cachedRegistrations.forEach(reg => {
+            const state = parseStateFromAddress(reg.address);
+            if (state) {
+                if (!byState[state]) byState[state] = [];
+                byState[state].push({ name: reg.name, branch: reg.branch });
+            }
+        });
+    }
+    
+    // Also check localStorage
+    const localRegs = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+    localRegs.forEach(reg => {
+        const state = parseStateFromAddress(reg.address);
+        if (state) {
+            if (!byState[state]) byState[state] = [];
+            // Avoid duplicates
+            if (!byState[state].find(a => a.name === reg.name)) {
+                byState[state].push({ name: reg.name, branch: reg.branch });
+            }
+        }
+    });
+    
+    return byState;
+}
+
+function switchAttendanceView(view) {
+    const mapView = document.getElementById('attendance-map-view');
+    const tableView = document.getElementById('attendance-table-view');
+    const mapTab = document.getElementById('tab-map');
+    const tableTab = document.getElementById('tab-table');
+    
+    if (view === 'map') {
+        mapView.classList.remove('hidden');
+        tableView.classList.add('hidden');
+        mapTab.className = 'px-6 py-3 rounded-full font-medium transition-all bg-brand-600 text-white shadow-md flex items-center gap-2';
+        tableTab.className = 'px-6 py-3 rounded-full font-medium transition-all bg-sand-200 dark:bg-sand-800 text-sand-700 dark:text-sand-300 hover:bg-sand-300 dark:hover:bg-sand-700 flex items-center gap-2';
+        renderUSMap();
+    } else {
+        mapView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        mapTab.className = 'px-6 py-3 rounded-full font-medium transition-all bg-sand-200 dark:bg-sand-800 text-sand-700 dark:text-sand-300 hover:bg-sand-300 dark:hover:bg-sand-700 flex items-center gap-2';
+        tableTab.className = 'px-6 py-3 rounded-full font-medium transition-all bg-brand-600 text-white shadow-md flex items-center gap-2';
+        filterAttendanceByBranch();
+    }
+    lucide.createIcons();
+}
+
+function renderUSMap() {
+    const container = document.getElementById('us-map-container');
+    if (!container) return;
+    
+    const attendeesByState = getAttendeesByState();
+    const highlightedStates = Object.keys(attendeesByState);
+    
+    // Create tooltip element
+    let tooltip = document.getElementById('map-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'map-tooltip';
+        tooltip.className = 'absolute z-50 hidden bg-white dark:bg-sand-900 rounded-xl shadow-2xl border border-sand-200 dark:border-sand-700 p-4 pointer-events-none max-w-xs';
+        container.appendChild(tooltip);
+    }
+    
+    // US States SVG paths (simplified for common states)
+    const statePaths = {
+        'AL': 'M628.5,398.5l-3.2,24.8l-1.5,16.9l-1,14.2l5.1,3.4l.5,5.6l-4.6,7.5l-1.1,4l2.3,3l-.1,2.1l-21.2,3l-21.7,1.8l.7-5.7l1.8-12.8l4-22.4l2.2-17.2l1.1-24.6l33.6-2.5l3.1-.1z',
+        'AK': 'M158.7,453.7l-1.2-2.2l-.8-1.9l-.4-3.8l3.3-2.7l1.9-.8l2.2.9l1.1,2l-1,3.2l-2.9,3.4l-2.2,1.9z M182.6,517.6l-4.4-1.2l-3-4l-3.6-1.7l-3.5-4.3l-.1-3l2.6-.3l2.6,1.9l1.6,2.2l2.9,1.1l1.9-.5l1.9,2.4l1.2,3.8l-.1,3.6z',
+        'AZ': 'M214.8,386.5l-2.3,19.9l-3.7,23.2l-1.3,13.9l-1.7,12.7l18.3,10.4l37.4,21l20.5,11.8l-11.4.3l-35.9-1.2l1.5-8.9l.7-2.9l-2.1-1.3l-7.9-.1l-2.9-3.2l-3.6-1.2l-2.9-5.4l-6.7-6.5l-1.9-3.7l.2-4.2l3.8-5.7l.5-2.7l-1.9-4.7l-.8-4.3l3.4-6.2l-2.4-5.4l-5.7-7.7l-1.9-8.7l-4.7-5.9l-1.9-1.6l.2-4.7l17.6-2.7l3.4.7l3.4-.7z',
+        'AR': 'M561.1,365.8l.9,6.2l-.5,5.6l3.1,7l-1.1,5l-3.9,5.7l1.8,4.8l-1,3.9l-.6,11.2l-49.9,1.4l-3.7-3.2l1-6l-2.3-5.3l-.1-4.2l3.6-4.6l-1.9-8.9l1.3-6.8l5-6.6l-1.3-5.7l44.5-1.1l5.1,1.6z',
+        'CA': 'M140.1,290.3l-2.7,8.9l-5.3,11.9l-1.7,14.2l-6.3,12.3l-7.6,11.8l-1.9,7.8l-1,6.7l4.2,6.5l.3,5.5l-3.6,3.9l-1.9,7.3l3.5,6.5l5.9,7.9l5.6,2.7l4.6,11.5l4.5,7.9l3.7,3.9l-.1,5.6l-3.9,7.5l9.9,12.4l7.3,5.9l2.5,6.9l-1.7,6.2l1.9,1.7l4.9-2l27.7,4.9l38.2,7l-12.4-88l-8.7-59.9l-37.2-10.9l-19-6.2l-4.7,1.7z',
+        'CO': 'M363.4,290.3l-2.7,45.5l-1.8,31.1l-72.9-3.7l-34.9-3.1l3.5-57.6l1.7-25.8l57.7,3.1l49.4,10.5z',
+        'CT': 'M825.8,205.3l-1.5,10.9l.7,3.2l-5.7,1.3l-16.5,4.4l-.7-3.2l1.9-7.4l1.1-6.1l18.1-4.9l2.6,1.8z',
+        'DE': 'M790.2,264.9l.8,3.2l-.3,7.7l-2.7,10.6l-5.4,1l2.7-14l1.8-6.1l3.1-2.4z',
+        'FL': 'M686.9,426.8l10.5,4.5l8.5,7.1l4.7,5.8l5.1,8.9l8.7,16.6l4.9,14.3l4.8,9.1l2,9.9l-.2,5.9l-3.7,5l-.5,8.5l4.7,6.9l.4,4.7l-2.3,6.5l-3.4-1.5l-3.4-6.2l-4.5-3.9l1.1-4.9l-3.1-2.9l-3.7-2.5l-.9-4.7l-4.5-2.9l-7.3-3.1l-5-5.3l-4.3-3.4l-1.4-4l-6.9-4l-3.9-.4l-5.9,1.2l-3.7-2.5l-4.9-5.4l-4.2-10.9l-3.7-6l.5-3.4l-5.7-8.4l-5.4-4l-6.9-7.8l-1-5.1l-8.3-6.2l-.5-3.6l-5.3-3.9l-.2-3.1l-8.3-.8l-2.6-2.2l-8.2-.3l-5.7,1.2l-5.9,3.2l-2.7-1.7l-7.6,1.9l-5.5,1.5l-6.6-.2l.9-7.5l17.9-2.1l45.3-4.3l7.7,5.2l6.7,2.5l5.7,7.9l6.6,1.3l5.2-1.3l10.7.2z',
+        'GA': 'M683,342.5l-3.3,6.9l-4.1,13.6l-3.9,10.5l-2.9,12.4l-2.9,9.9l-2.7,14.2l-2.7,9.9l2.8,4.1l4.5,6.5l3.5,7l4.2,2.3l.7,3.2l-6.9,5.9l-5.5.7l-3.2,4.9l-5.6,1.7l-.5,3.8l-4.7,4.2l-3.5-2.3l-18.7,2.5l-20.8,2.9l-2.1-.2l.6-6l-2.5-5.3l-.4-5l-3.9-9.4l1.9-3l-1.7-4.5l2.5-5.1l1.1-7.9l3.9-9.9l2.9-5.5l-.4-4.6l2.9-6.6l-1.5-5.6l3.4-1l34.2-3.9l21.6-2.2l6.9-.1z',
+        'HI': 'M273.5,535.5l-1.7-3.2l1.2-2.9l3.2.4l1.6,2.3l-.5,2.9l-3.8.5z M292.1,541.1l-4.2-1.7l-.4-2.5l2.3-2.8l3.6.2l2.6,2.7l-.8,3.2l-3.1.9z M304,530.4l-2.1,2.7l-2.4-.9l-.5-2.5l2.6-2.3l2.3.8l.1,2.2z M318.2,520.7l-.7,3.2l-3.5-.4l-1.1-2.3l.9-2.5l3.2-.3l1.2,2.3z M346.3,507.7l-5.3,1.3l-3.2-1.7l.8-3.7l3.9-1.7l3.9,1.2l-.1,4.6z',
+        'ID': 'M232.7,195.5l-6.7,26.9l-4.9,21.2l-4.4,13.6l-2.9,5.9l-3.4.2l-3.2,4.4l.7,3.7l-2.2,3.9l-.2,5.1l-7.5,9.4l-2.4,1.6l-.2,5.6l5.7,6.7l.5,2.9l-5.9,2.4l-2.9,5.2l-2.1,0l-1.5-3.7l.4-10.6l-3.5-4.7l-2.9-.2l-4,4.9l-5.7,2.5l-1.7-1.5l.9-6.4l-3.2-4.9l-1.9-6.2l-3.9-3.7l2.7-13.4l1.5-10.1l-1.5-2.5l.5-7.1l4.7-20.7l3.4-16.6l-2-10.9l-.3-5.9l2.4-9.4l41.5,9l27.7,4.7l-1.7,6.1z',
+        'IL': 'M598.4,241.8l1.1,4.5l.1,6.9l3.1,6.2l.7,11.5l-2.1,5.7l-2.1,3.2l1.1,6.1l3.4,5.5l3.4,3.7l.7,7.5l-1.7,10.9l-3.7,7.1l-3.2,3.5l-.7,6.9l-2.7,3.2l-.6,4.7l-2.2,4l-10.5-.1l-3.1-1.5l-5.7-.7l-3.1-5.4l-3.2-1.3l-2.4,2.4l-6.3.5l-1.4-2.7l1.6-2.9l-.3-3.4l-3.2-4.7l-2.1-6.2l-.3-4.9l2.7-3.2l.2-4l-2.6-4l-.2-4.7l4.2-8.5l-1.2-3.7l-3.9-4.7l-1.3-7.5l1.5-2.3l-.2-5.1l2.4-5.4l-.1-5l3.3-6.4l-.3-5.2l34.9.1l12.6.9l.2,5.2z',
+        'IN': 'M622.4,246.5l.2,6.5l-2.5,3.2l.4,4.1l2.5,4.7l.4,4.1l-1.8,5.4l2.1,5.7l-.3,8.1l3.7,7.9l-.1,5.7l-1,13.5l-2.3,5.6l2.1,3.8l-35.7,3.7l-1.7-3.6l1.9-4.7l-1.6-3.1l-1.5-6.5l-3.3-4.2l1.9-2.4l.6-6.7l3.2-3.4l3.7-7.2l1.7-10.4l-.6-7.3l-3.4-3.9l-3.3-5.3l-1.3-6.3l2.2-3.3l2.2-5.4l-.6-11.5l36.3-1.7z',
+        'IA': 'M543.9,228.3l.3,4.9l2.6,2.8l.3,3.7l-3.4,5.5l-1.4,6l1.2,4.6l2.4,1.2l1.2,2.6l-.4,5.1l-4,3.6l-1.6,2.2l-51.8,1.7l-30.9-.5l-.6-6.6l-2.4-4.2l-4.2-2.7l-1.2-2.4l-.4-6.4l-3.7-5.4l.9-6.2l2.9-4.7l-.6-2.8l-3.3-2.6l-.2-4.9l-2-4.6l1.4-6.2l2.2-3.2l.8-4.7l3.8.1l48.7.7l39.2-1.8l1.2,5.9l4.6,5.9l2.9,3l.5,4.7l-3.6,5.8l-.3,4.4z',
+        'KS': 'M489.1,299.1l-5.6,51.9l-63.7-2.1l-61.4-4.2l1.6-26.4l.9-24.9l42.7,1.2l83.9,2.5l1.6,2z',
+        'KY': 'M669.7,318.1l-4.2,3.9l-6.7,5.6l-2.3.4l.1,3.7l-3.5,3.4l-3,-.3l-2.7,4.3l-3.7.4l-48.6,4.9l-22.3,2.8l-4.3-4.6l-12.2,1.3l-7.9,.5l2.2-4.3l.7-4.9l2.8-3.1l.6-6.8l3.3-3.6l3.7-7l-2.2-3.9l2.2-3.5l7.7-.8l4.9-2.9l5.7-1l5.2,3.1l5.5-.7l6.2,1l5.4-.6l2.7-2.9l4.4.5l2.9,3.1l6.3-2.5l4.6,1.1l2.2,4.7l6.3.4l2.1-2.4l10.2-.8l5.1-3.4l7.4-1.5l2.6,2.1l3.8,4.9l4.9,2l.4,3.7l4.3,3.8z',
+        'LA': 'M561.1,456.9l-1.9,14.6l-.1,3.2l4.1,5.4l-.1,7.9l-4.5,4.2l1.3,3.7l-1.9,3l4.2,3l3.5-.5l2.1,3l6.7-.5l2.1-3l3.9,2.2l-2.2,6.1l4.6,1.6l3.2-1.5l1.9,2.6l-2.4,3.6l5.7,2.7l2.5-5.6l4.7-.3l1.7,2.2l-2.1,2.9l1,2.3l9.2.5l2.7-2.2l2.9,4.1l-3,2.2l2,3.7l-8.5,3.2l-5.2-.8l-6.5,2.4l-3.5-1.9l-4.9,3.6l-5.2,1l-7.9-3.9l-5.4,1.2l-4.8-1.9l-5.9,.5l-.5-4.4l-3.3-3.2l-1-4.7l3.5-2l-.1-5.3l-3.7-1.4l-7.7,.5l-3.5-2l-7.7,.4l-2.6-3.4l.9-7.2l5.3-4.2l2.3-7.8l4.5-5.2l.6-6.1l3.1-4.4l-1.1-5.4l-3.3-1.3l1.8-4.2l43.9-1.1z',
+        'ME': 'M852.4,115.4l1.9-2.9l2.1,2l1,3.5l-2.5,3.5l-2.2-.5l-.3-5.6z M855.6,76.5l3.4,2.9l4.4,8.2l-2.3,7.9l-2.6.1l-3.5,4.2l1.7,5.4l4.7,3.4l.3,4.1l-2.1,5.1l-4.3-.5l-4.9,7.1l-1.7-1.6l-1.4,2.5l-1-3.3l1.4-3.1l-.5-6.3l-3.7-3.2l-2.3-7.9l1.6-3.5l-1.2-6.5l2.8-5.8l2.9-1.8l.3-4.2l5.9-5.7l1.3,2.9l.6-.6z',
+        'MD': 'M790.5,280.6l-6.9,2.2l-7,-.5l-2.9-2.6l-2.3,2.2l-4.9,-.2l-3.5-5.2l-3.7-3.9l-1.9,-.1l-1.9,4.6l-3.5,3l-4.4-1l-7.9,3.3l-5.9,-.3l-7.5,2.9l-1.1-8.7l6.4-2.3l2.8-3.1l3.7-4.5l5-1.4l4.5,1l5.5-5.5l1.8,5l4.9,1.3l2.2-1.6l4.7,.3l.7,4.9l10.7-.6l2.1-5l4.1-5.7l2.7,6.9l4.4,5.3l-.5,8.9l.4,5z',
+        'MA': 'M857.4,189.8l-2.1,2.5l-2.5-.4l-.5-2.9l2.7-1.3l2.4,2.1z M848.4,188.4l-1.5,2.2l-3-1.2l.3-2.5l2.7-.5l1.5,2z M824.5,185.6l3.5-.3l1.1,2.6l3.4,.1l.2,2.1l-7.1,2.2l-4.1-.3l-.1-2.1l1.1-2l2-2.3z',
+        'MI': 'M612.5,150.4l3.7-5.7l2.9-2.2l5-1.2l1.3-3.2l2.3-1.7l1.8,1.3l5.9,.3l3.6-1.7l1-2.7l2.2-.7l3.3,1.9l1.6,7.1l2.5,6.4l-1.2,4.2l-2.1,2.3l.6,2.1l2.9,-.2l1.7,2l-.6,2.2l-3,2.3l-.3,4.6l1.8,1l3.7-2.7l2.3,.8l3.1,-1l5.3,2.4l1.8,3.2l1.7,6.2l3.1,6.4l-1.5,3.6l-.8,4.6l1.3,2.7l-.4,3.5l-2.2,4.4l1.9,2.2l.2,2.4l-4,1.7l-3.6,3.6l-6.2,2.6l-3.6,3l-.5-1.7l.3-6.7l-2.9-1.2l-.6-2.7l-3.7-3.5l-7.5-3.1l-1.7-4.2l-7.5-1.7l-.7-1.3l-5.7-1.3l-5-4.2l-15.7-3.5l.3-5l3.9-2.4l2-5.1l-.5-2.3l-1.7-1.5l2.3-1.8l6.3-1.5l2.5-3.7l1.1-5.9l-2-3.3l-1.3-4.7l-2.1-.6l-3.6,1.5l-3.7-.3l-.6-2.2l5.1-1.1l1.9-2.3l.6-3.9l2.5-1.9l-.4-5.7l1.8-3.8z',
+        'MN': 'M533.7,107.5l-.1,6.6l3.9,5.3l8.7,5.3l1.4,5.5l.3,22.7l1.6,4.5l4.7,3.4l3.7-.2l1.1,3l-5.4,4.3l-5.4,7.1l-1.5,9.7l-.3,8.9l1.5,5.7l-1.9,3l-47.9.7l-1.5-53.6l-.4-18.9l-4.1-2.5l-2.7-5.2l-5.5-1.5l-2.4-4.7l-4.7-5.1l-.7-4.1l2.8-3.7l2.7,.3l5.2-4.3l3.1-.6l6.9,3.7l3.5,-.6l5.4,.5l5.3,2.6l18.3.2l5.7.3v5.8z',
+        'MS': 'M603.9,399.9l-43.9,1.2l-1.7,4l3.2,1.3l1.1,5.2l-3.1,4.5l-.5,6.2l-4.5,5.1l-2.3,7.9l-5.3,4.2l-.9,7.5l3,3.4l.9,4.9l-2.3,1.2l-2.2,6.9l21.7-1.1l21.3-2.1l4.9-4.1l1.4-4.5l.8-11.5l1-3.7l-1.8-4.7l3.8-5.6l1.2-5.2l-3.1-6.8l.5-5.6l-.9-6.1l5.7-2z',
+        'MO': 'M557.8,279.5l2.7,3.5l4.3,3.2l-.2,4l3,5.5l-2.7,4.6l-1,5.7l3.2,3.7l4.4,2l2.4,4.6l2,2.5l.3,5.7l-1.4,4.5l2.5,5.3l2.6,3.5l-.1,7.8l-5.3.3l-10.6.6l-42.7,1.7l-1.5-5.2l5.1-3.7l1.6-5.3l-3.1-4.9l-4.4-2.3l-1.1-3.7l-2.1-3.4l5.1-4.3l-.8-10.5l71.7-1.9l5.2-47.2l32.7,1.1l3,3.8l-2.7,3.8l.1,4.2l3.7,5.9l3.9,3.6l1.5,4l-3,4.4l-2.9,6.9l-4.5,3.9l-3.3,1.2l-3.5-1.7l-4.5,2l-6.1-1l-5.3.7l-5.8-3.1l-5.9,1l-5.2,3l-8.1.9z',
+        'MT': 'M317.6,111.3l.6,6.9l2.2,4.9l-.5,4.2l1.7,3.5l1.1,3.9l-1.7,4.7l1.9,3.4l-.5,5.9l2.2,7l.3,3.5l1.4,2.4l-1.5,4.1l2.6,5.4l.3,3.4l4.5,4.1l.5,3.9l-71.5-5l-75.2-10.2l5.9-32l6.9-37.6l62.9,10.4l56.4,7.1z',
+        'NE': 'M424.1,238.1l-63.7-5.2l-28.7-3.8l3.3-33l4.9-31.9l42.1,3.4l45.9,2.2l2.1,4.4l4.9,4.1l1.2,3.8l5.7,1.5l3.4,5.7l5.1,2.1l1.6,2.2l.1,2.5l5.7,5.1l-.3,5.5l2.7,5.5l-5.4,6.9l-1.6,4.9l-1.7,7.9l-1,10.5l-25.3-1.3z',
+        'NV': 'M185.8,230l-9.9,52.8l-5.9,28l-11.6,52.3l-16.4-3.4l-18.7-4.7l-12.9-3.2l9.8-37.9l13.5-51.5l5.9-21.2l4.4-13.3l5.9-24.2l40.3,9.2l2.4,7.9l-3.7,3.8l-2.5,4l.2,2.4l-.8-.1z',
+        'NH': 'M840.5,138.5l.3,5.7l.5,4.3l-1.2,6.6l.7,3.9l-.5,4.1l-2.9,3.2l-.5,3.5l.1,3.5l2.1,1l-3.9,7.4l-3.5.1l-1.2-2.5l-2.8.3l-1.3-3.4l.7-4.8l-.6-2.7l.5-10.9l2.3-5.5l-1.7-3.1l1.4-3.9l-.6-7.2l1.4-5.6l-.9-5.9l5-1.9l5.3,1.7l1.3,6.1l.4,5.6z',
+        'NJ': 'M801.6,240.7l-.7,3.1l1.2,2.6l2.2-1.3l1.5,2.7l-.9,3.1l-3.1,4.7l-2.9,4.1l-1.7,6.9l1.1,4.5l3.3,3.7l1.6,2.7l-.5,2.5l-3.7,2.2l-1.8-1.2l-1-7.9l-2.1-4.5l-3.4-2.8l.1-4.3l-1.2-2.3l.4-4.4l1.9-1.7l-1.2-2.3l1.5-3.5l3.2-.8l3.7-4.2l1.9,1.5l2-.3z',
+        'NM': 'M288.4,363.3l1.2,10.5l3.9,26.3l1.3,13.3l.6,11.9l-49.9-5.5l-9.6-1.3l-1.4,10.9l-35.6-5.8l8.7-51.7l6.3-37.5l42.6,5.8l30.4,3.1l1.5,19.9z',
+        'NY': 'M818.5,175.1l1.7,4.3l4.3,3.2l-.7,2.5l-2.5,3.3l-3.9,2.9l-3,4.2l-2.5,1.3l-.7,-.1l-1.7,2.9l-4.7,3.1l-2.5,.3l-2.4,3.3l-.3,6.1l-2.6,.7l-1.2,2.2l.3,5.4l-2.9,.7l-2.3,-3.7l-1.9,2.2l-6.9,3.6l-4.5,1.4l-6.9,1.7l-5.5,.8l-4.7,-.2l-5.9,-.2l-8.8,1.9l-8.2,2l-8.6,-1.9l3.9,-4.2l1.3,-5.5l3.9,-4.1l4.1,-3.2l4.5,-5.1l2.4,-4.2l4.3,-5.9l2.5,-5.7l1.5,-8.5l2.5,-7.5l3.1,-4.7l-.2,-4.3l-3.7,-3.2l-1,-3.2l-3.3,-6.2l3.9,-2.1l5.5,-1.5l5.5,-1l16.5,4.1l40.2,-9.5l5.1,-1.6l1.3,6.5l3.3,4.2l.7,5.5l-2.1,4.5l.3,3.2l3.5,2.3l-.4,2.1z',
+        'NC': 'M778.3,335.5l-4.7,6.7l-6.3,8.9l-7.5,5.5l-3.3,5.2l-3.5,2.5l-.9,3.1l-5.9,-1.1l-3.3,4.2l-3.9,3.3l-2.7,-.3l.7,-4.6l-1.3,-3.1l-4.6,.2l-2.9,5.5l-4.3,.5l-.5,5.5l-4.7,1.2l-5,3.3l-5.4,-.3l-5.7,4l-5.6,-.8l-6.6,3.9l-4.5,-.1l-5.2,-3.3l-4.9,2.5l-3.7,3.7l-3.5,.5l-3.2,-.9l-2.7,3.3l-7.7,2.6l-3.1,-1.5l-2,-3.3l1,-4.9l.5,-5.6l-3.1,-.5l2,-2l2.8,-3.4l4.9,-6.4l6.4,-2.3l4.7,-4.2l9.2,-3.2l7.1,-3.3l6.9,-1.1l3.5,-2.3l4.3,.5l6.1,-4.1l3.2,.4l3.2,-4.3l6.1,-.7l6.7,-5.5l4.3,-.5l3.5,-2.7l7.3,-3.4l2.3,.4l2.7,-4.4l4.5,-2.2l.3,-2.7l4.9,-.3l6.1,-2.2l4.5,.2l1.9,6.2l8.2,1.5z',
+        'ND': 'M483.3,107.1l1.7,23.9l-.5,27.8l-1.9,14l-70-2.1l-33.9-2.4l2.2-28.7l.8-28.9l.4-14.5l37.9,1.3l63.3,9.6z',
+        'OH': 'M690.5,246.9l-2.9,3.4l-.7,5.6l2.9,5.4l-2.1,3.3l1.2,3.5l-1.9,4.8l4.2,6.2l-2.9,7.2l1.2,3.3l-1.5,2.8l-4.1,2.2l-6.3,-.2l-3.3,5l-3.9,1.4l-5.5,5.1l-3.3,3.9l-6.4,-1.2l-3-3.3l-4.5,-.5l-2.7,2.8l-5.2,.5l-6.3,-.9l-5.7,.7l-4.9,3.1l-5.4,.5l-1.9,-5.7l1.9,-5.2l-.6,-4.2l-2.4,-4.5l-.3,-4.2l2.3,-3.1l-.3,-6.7l-.3,-4.6l-3.7,-8.1l.3,-7.9l-2.2,-5.8l1.8,-5.1l-.4,-4.2l-2.4,-4.6l-.3,-6.5l35.4,-4.1l31.7,-4.8l5.8,5.1l3.3,5.4l4.5,3.7l4.1,.3l3.1,2.9l4.1,.4l4.5,4.7z',
+        'OK': 'M421.2,344.4l-.6,30.7l-4.7,-3.7l-5.8,.7l-3.9,-2.2l-3.6,2.9l-3.7,-1l-5.1,2.5l-3.4,.2l-2.5,2.7l-4.1,-2l-3.9,.9l-3.5,-3.2l-4.2,.1l-2.9,-2.1l-4.1,1.6l-2.9,-1l-3.2,1.4l-2.9,-2.6l-3.5,.9l-5.7,-2.3l-4.8,-3.5l.3,-13.7l-44.7,-1l1.2,-14.1l54.7,1l63.7,2.1l1.6,5.1l.1,2z',
+        'OR': 'M171.3,169l-5.5,20.1l-3.6,15.8l-6.6,22.2l-.4,7.7l-4.3,8.2l-.2,6.2l-49.1,-11.6l-38.2,-10.2l6.5,-18.5l-3.2,-4.2l2.7,-8.9l-.9,-7.5l1.9,-7.7l3.5,-.9l5.7,-5.1l5.3,-2l3.1,-3.9l.6,-3.3l6.1,-5.9l3.3,-1.9l-.8,-3.7l3.4,-5.7l5.3,-5.2l.5,-5.2l-2.1,-2.4l3.5,-.4l7.4,2.8l6,-.8l1.6,2.3l6.1,1.7l5.6,.2l2.1,-2.8l3.4,.1l.7,-3.7l4.9,-.8l1.7,-2.9l2.9,.8l13.3,3.7l12.3,2.2l-3.7,15.6z',
+        'PA': 'M775.3,235.7l-4.3,4.3l-3.6,.4l-3.1,4.5l-1.3,5.2l-3.4,4.3l-.5,6.2l-2.5,2l-4.5,-.7l-46.9,9.8l-18.2,3.3l1.1,-5l-2.1,-4l4.5,-3.7l2.3,-5l-.3,-4.1l.9,-4.6l3.6,-4.8l.5,-2.9l-.7,-4.3l2,-5.2l-.1,-2.7l2.9,-1.1l4.7,-5.1l4.8,-1.9l1.7,1.5l4.3,-.6l4.9,-4.8l3.5,-1.5l3.7,-.3l4.7,-.5l2.5,-2.7l3.2,-.3l3.1,2.3l5.7,-.7l1.9,-2.9l2.9,-1.1l3.7,1.2l3.2,-1.5l4.4,.5l2.8,5.9l1.9,8.2l4.7,5.2l5.3,5.2l.5,5.1z',
+        'RI': 'M833.4,205l-1.4,6.8l-.9,5.1l-3.9,-2.4l-2.3,-3.9l1.4,-2.9l.4,-3.5l2.4,.7l4.3,.1z',
+        'SC': 'M706.1,370.5l-3.5,4.6l-1.9,5.5l-2.5,4l-5.5,7.1l-6.5,5.8l-5.3,2.2l-6.9,6l-4.6,1l-3.2,3.5l-2.9,5.1l-4.7,.2l-.7,-3.5l-3.7,-1.9l2.3,-4.7l-.3,-4.6l-5.9,-3l-2.9,-6.3l-3.2,-4.3l1.5,-2.5l-2.3,-3l-.7,-3.9l-1.9,-.7l1.7,-7.9l2.9,-5.9l4.2,-2.7l6.1,1.5l5.3,-.9l6.2,-3.7l5.5,.8l5.6,-4.1l5.3,.3l4.9,-3.3l4.7,-1.2l-.2,5.1l4.4,-1l3.8,-3.2l3.3,-4.1l5.9,.9l-.5,4.3l1.7,2.2l-1.1,5.2l-2.7,8.4z',
+        'SD': 'M484.1,172.4l-.5,27.5l-1.6,26.3l-51.4,-1.5l-45.2,-2.9l.9,-9.9l1.7,-8.1l1.8,-4.6l5.2,-6.7l-2.6,-5.5l-.3,-3.5l-4.7,-4l-.4,-3.8l-2.6,-5.4l1.6,-4l-1.5,-2.6l-.2,-3.2l-2.2,-7.2l.5,-6.1l-1.8,-3.2l1.7,-4.7l-1.2,-4l.5,-4.2l-2.2,-4.8l-.5,-6.9l72.2,4.3l-.3,28.9l-.3,14.3z',
+        'TN': 'M671.3,342.4l-5.5,-1.7l-3.5,2.7l-7.1,2.6l-3.9,-.3l-6.4,4.2l-5,-.9l-6.5,3.5l-6.3,-.3l-6.7,-.3l-3.8,2.5l-2.1,-.6l-22.6,3.3l-22.3,1.5l-18.4,1.8l-2,-5.9l3.5,-4.1l-1.1,-4.2l3.5,-5.7l4.1,-3.8l.9,-3.4l1.6,-5.8l5,-4l.9,-5.9l48.4,-5.1l22.3,-2.5l12.2,-1.6l4.5,4.6l.8,4.1l6.6,-.7l.9,5.3l3.1,3.7l-.5,5.3l3.1,4.1l-1.7,4.9l3.7,3.9l-3,2.5z',
+        'TX': 'M421.1,373.8l47.5,2.2l4.4,.3l-1.9,20.5l-.5,8.3l2.1,4.7l1.2,5.1l5.1,7.5l2.2,2.8l1.2,5.8l3.8,6.7l4.7,3.9l.7,2.7l-2.5,.3l-7.4,3.9l-3.6,.2l-5.1,3.4l-4.6,1.2l-2.2,1.7l-4.4,.3l-4.3,1.6l-5.5,3.7l-3.5,4.9l-1.5,6.5l-.3,5.5l-3.9,5.7l-.6,2.5l-3.5,-.7l-2.9,1.2l-.5,3.2l-2.7,5.5l1.3,2.7l-1.6,4.5l-1.2,5l-2.5,3.2l.7,4.4l-5.2,3.4l-4.8,-2.9l-5.1,.6l-5,-2.3l-6.6,-4.7l-3.7,1.6l2.2,4.1l-.2,3.6l-.8,6.7l-2.5,2.6l-.9,3.2l-3,3.4l-5.9,-4.2l-5.3,-1.2l-1.5,-4.3l-5.5,-5.8l-1.7,-2.9l-.9,-5l-6.7,-6.9l-4,-3.2l.7,-4.3l-6.9,-12.5l-2.2,-.2l-.3,-3.9l-4.5,-4.6l.3,-4.2l-3.4,-6.2l-4,-5.7l.3,-4.2l-3.4,-2.2l3.2,-9.5l2.5,-4.5l-.5,-3l3.2,-6.1l.2,-4.1l-1,-3.5l1.4,-9.1l3.2,-5.9l-.5,-3.2l-2.5,-3l1.2,-5.8l3.2,-.9l.2,-8.2l2.2,-10.3l1,-3.2l-2.5,-5.5l-.5,-5.1l-2.9,-4l-1.4,-4.5l-3.7,-4.5l43.7,.6l-.7,15.5l.5,28.8l.5,6.1l3.3,3.1l2.8,-1.9l3.2,1l2.9,2.4l3.2,-1.3l2.9,.9l4.3,-1.7l3.1,2.1l4,.1l3.6,3l4,-.9l4.1,2l2.4,-2.8l3.3,-.3l5.1,-2.6l3.9,1.2l3.5,-3.1l4,2.4l5.7,-.7l4.9,3.6z',
+        'UT': 'M254.6,292.8l-45.8,-7l12.3,-72.9l27.7,4.4l34.5,4.7l-4.6,29.7l-1,6.8l.7,4.5l-5.2,15.1l-.5,4.9l-1.6,3.7l-4.2,3.7l-.9,4.4l-11.4,-2.1z',
+        'VT': 'M819.3,140.5l-.4,4.9l1.7,6.9l-1.5,5.1l2.3,8.3l-.6,4.3l-1.9,4.9l-15.4,4.2l-1.9,-2.3l1.2,-4.7l-1,-4.1l2.2,-5.5l-.4,-5.2l-.9,-6.7l1.2,-6.2l-.6,-4.5l-.4,-5.9l14.9,-4.2l1.5,4.7z',
+        'VA': 'M781.2,293.8l-2.8,6.9l-3.9,2.3l-1,4.5l2.5,4.2l-1.7,6.5l-3.5,2.3l-2.5,6.1l.3,3.7l-4.4,.9l-3.7,3.5l-3.2,-.7l-1.5,3.9l-5.9,5.3l-.9,3.3l-5.7,1.2l-4.1,-2.2l-3.2,4.3l-3.2,-.5l-5.7,3.9l-3.5,-.1l-5.3,-.4l-4.3,-2.9l-5.3,-.9l-1.3,-3.5l.7,-3.6l-2.9,-5.2l-6.6,-1.5l-4,-5.7l-8.6,5.5l-4.7,1.4l-3.7,-2.3l-3.9,-6.5l4.1,-6l3.5,-5.9l2.5,-6.7l.7,-8.3l.1,-3.7l-1.2,-2.3l9.2,.9l5.4,-2.9l4.6,.5l3.9,-2.5l6.9,-.5l3.2,-5.2l2.6,2.3l7.3,.4l6.6,-2.2l10.6,5.7l2.5,6.3l4,2l4.8,-.3l6,-5l5.8,-1.9l3,-3.5l7.4,.1l.8,8.5z',
+        'WA': 'M171.5,53l2.7,7.9l3.4,1.7l1.1,5.6l3.9,2.1l3.8,-.4l4.1,2.9l4.7,-.6l.9,-2.6l3.3,-.3l1.5,2.2l-.8,3.9l3.7,.3l1.5,5.9l-2.1,9.9l-4.6,1.2l.9,7.4l-2.5,9l-.5,7.2l-3.7,.5l-5.9,4.9l-3.1,.8l1.4,-9.9l-2.3,-4.7l-6.3,-1.6l-.7,2.7l-5.9,-.1l-6.2,-1.7l-1.5,-2.3l-6.3,.8l-7.5,-2.9l-3.1,.2l-.4,5.1l-2.9,-3l.5,-5.3l-3.9,-2.2l-2.6,-4l-4,-.7l-4.7,-4.7l-6.9,1.6l.9,-3.7l-2.7,-1.4l-2.4,-6.5l.8,-5.3l-2,-7.2l3.1,-10.3l5.9,2.2l4.4,.6l5.3,2.2l6.2,.7l3.9,1.2l5.9,-.1l6,-2.1l6.4,.3l2.2,1.5l5.4,.3l4.7,-2.6l3.2,-5.9z',
+        'WV': 'M718.3,275.7l1.2,2.9l-.6,3.5l3.5,4.9l3.5,2.5l1.3,3.4l-4.2,4.2l-3.6,1.2l-2.1,3.9l-1.8,3.3l-2.9,.9l-3.2,5.7l.7,3.2l2.5,1.9l-1.3,6.8l-4.2,-.5l-1.9,4.7l-4.3,4.3l-2.3,4.3l-3.1,-1.2l.9,-5.5l-1.7,-4.2l-2.5,-2.2l-1.3,-4.4l-4.2,-4.4l-1.7,-4l-2.1,-.3l-4.6,4l-3.7,-.3l-1.5,-2.7l-1.9,3.2l-3.9,2.3l-.7,-5.3l1.9,-4.9l-.4,-5.7l3.2,-1.2l4.4,-4l2.9,-6.8l3,-4.6l-1.5,-3.7l-4,-4.2l3,-1.2l2.7,-4.2l2.9,.3l3.5,-3.4l-.2,-3.7l2.2,-.3l6.9,-5.7l3.3,4.5l3.9,.5l3.3,4.5l.9,5.2l3.9,3.2l2.1,.5z',
+        'WI': 'M576.4,149.1l1.4,3.6l3.1,.5l3.2,2.5l1.9,4.4l4.4,3.5l1.3,5.7l2.1,1.9l-.3,2.8l1.7,1.7l.7,5.9l-.5,4.8l-1.7,4l.5,4.5l1.4,4.4l-.7,3.2l2.1,3.2l.5,5.5l-.7,3.2l-1,3l-3.3,2.8l-1.5,3.9l-3.1,-.6l-10.2-2.2l-2.6,-3.5l-4.3,-.3l-5.9,2.5l-9.6,1.1l-3.9,-2.3l-2.7,-.9l-2.5,-5.9l-4.9,-3.3l-1.7,-4.5l-.3,-22.8l-1.5,-5.3l-8.7,-5.5l-4.3,-5.9l.2,-7.2l2.6,-1.9l1.2,-4.4l.8,-4l4.7,-3l3.2,-3.1l-.6,-2.9l1.2,-2.7l4.5,1l3.7,3l1.6,-.3l3.6,-2.5l4.5,2.2l3.5,-.5l2.8,4.9l4,3.9l3,1.5z',
+        'WY': 'M363.6,179.4l-4.9,57.5l-42.8,-3.9l-57.3,-7.3l4.9,-57.9l53.7,6.3l46.4,5.3z'
+    };
+    
+    // Build SVG
+    let svg = `<svg viewBox="0 0 960 600" class="w-full h-auto">`;
+    
+    // Add state paths
+    for (const [state, path] of Object.entries(statePaths)) {
+        const hasAttendees = highlightedStates.includes(state);
+        const fillClass = hasAttendees ? 'fill-brand-600 hover:fill-brand-500' : 'fill-sand-200 dark:fill-sand-700';
+        const cursorClass = hasAttendees ? 'cursor-pointer' : 'cursor-default';
+        
+        svg += `<path 
+            d="${path}" 
+            class="${fillClass} ${cursorClass} stroke-white dark:stroke-sand-900 stroke-1 transition-colors duration-200"
+            data-state="${state}"
+            ${hasAttendees ? `onmouseenter="showMapTooltip(event, '${state}')" onmouseleave="hideMapTooltip()"` : ''}
+        />`;
+    }
+    
+    svg += `</svg>`;
+    
+    // Insert before tooltip
+    const existingTooltip = container.querySelector('#map-tooltip');
+    container.innerHTML = svg;
+    if (existingTooltip) container.appendChild(existingTooltip);
+    else {
+        const newTooltip = document.createElement('div');
+        newTooltip.id = 'map-tooltip';
+        newTooltip.className = 'absolute z-50 hidden bg-white dark:bg-sand-900 rounded-xl shadow-2xl border border-sand-200 dark:border-sand-700 p-4 pointer-events-none max-w-xs';
+        container.appendChild(newTooltip);
+    }
+    
+    // Update count
+    const totalStates = highlightedStates.length;
+    const totalAttendees = Object.values(attendeesByState).reduce((sum, arr) => sum + arr.length, 0);
+    const countDisplay = document.getElementById('attendance-count');
+    if (countDisplay) {
+        countDisplay.textContent = `${totalAttendees} attendee${totalAttendees !== 1 ? 's' : ''} from ${totalStates} state${totalStates !== 1 ? 's' : ''}`;
+    }
+}
+
+function showMapTooltip(event, stateCode) {
+    const tooltip = document.getElementById('map-tooltip');
+    if (!tooltip) return;
+    
+    const attendeesByState = getAttendeesByState();
+    const attendees = attendeesByState[stateCode] || [];
+    const stateName = stateNames[stateCode] || stateCode;
+    
+    let html = `<div class="font-bold text-brand-900 dark:text-white mb-2">${stateName}</div>`;
+    html += `<div class="text-sm text-sand-600 dark:text-sand-400 mb-2">${attendees.length} attendee${attendees.length !== 1 ? 's' : ''}</div>`;
+    html += `<ul class="space-y-1">`;
+    attendees.forEach(a => {
+        html += `<li class="text-sm"><span class="font-medium text-sand-900 dark:text-white">${a.name}</span> <span class="text-sand-500 dark:text-sand-400">· ${a.branch}</span></li>`;
+    });
+    html += `</ul>`;
+    
+    tooltip.innerHTML = html;
+    tooltip.classList.remove('hidden');
+    
+    // Position tooltip
+    const container = document.getElementById('us-map-container');
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    tooltip.style.left = `${Math.min(x + 10, rect.width - 200)}px`;
+    tooltip.style.top = `${y + 10}px`;
+}
+
+function hideMapTooltip() {
+    const tooltip = document.getElementById('map-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
 }
 
 function closeUserModal() {

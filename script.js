@@ -103,8 +103,14 @@ function removePhoto() {
     lucide.createIcons();
 }
 
-function handleRegistration(e) {
+async function handleRegistration(e) {
     e.preventDefault();
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-4 h-4"></i> Submitting...';
+    submitBtn.disabled = true;
+    lucide.createIcons();
     
     // Get form data
     const formData = {
@@ -123,31 +129,29 @@ function handleRegistration(e) {
         signedUp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
     
-    // Generate user ID from name
-    const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
+    // Try Supabase first, fall back to localStorage
+    const result = await submitRegistrationToSupabase(formData);
     
-    // Get existing registrations from localStorage
-    let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
-    
-    // Add new registration
-    registrations.push({
-        id: userId,
-        ...formData
-    });
-    
-    // Save to localStorage
-    localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+    if (result.fallback || !result.success) {
+        // Use localStorage as fallback
+        const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
+        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        registrations.push({ id: userId, ...formData });
+        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+    }
     
     // Reset form
     e.target.reset();
     uploadedPhotoData = null;
     document.getElementById('photo-preview').classList.add('hidden');
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
     
     alert("Registration Submitted! Welcome to the family.");
     route(null, 'home');
 }
 
-function handleIdeaSubmit(e) {
+async function handleIdeaSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('idea-submit-btn');
     const originalText = btn.innerHTML;
@@ -156,11 +160,25 @@ function handleIdeaSubmit(e) {
     btn.disabled = true;
     lucide.createIcons();
 
-    setTimeout(() => {
-        document.getElementById('idea-success').classList.remove('hidden');
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }, 800);
+    // Get form data
+    const nameInput = document.querySelector('#idea-form input[type="text"]');
+    const ideaInput = document.querySelector('#idea-form textarea');
+    const name = nameInput ? nameInput.value : 'Anonymous';
+    const idea = ideaInput ? ideaInput.value : '';
+    
+    // Try Supabase first, fall back to localStorage
+    const result = await submitIdeaToSupabase(name, idea);
+    
+    if (result.fallback || !result.success) {
+        // Use localStorage as fallback
+        let ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
+        ideas.push({ name, idea, created_at: new Date().toISOString() });
+        localStorage.setItem('reunionIdeas', JSON.stringify(ideas));
+    }
+    
+    document.getElementById('idea-success').classList.remove('hidden');
+    btn.innerHTML = originalText;
+    btn.disabled = false;
 }
 
 function resetIdeaForm() {
@@ -169,18 +187,40 @@ function resetIdeaForm() {
 }
 
 // 5. Modal Logic
-const eventData = {
+// Default event data (used as fallback when Supabase is not configured)
+let eventData = {
     'monthly-dec': { title: "Monthly Family Update", time: "Dec 14 • 4:00 PM", location: "Zoom", desc: "Venue updates & fundraising.", extra: "Open forum Q&A.", date: "2025-12-14" },
     'planning-dec': { title: "Planning Committee", time: "Dec 28 • 5:00 PM", location: "Zoom", desc: "Logistics & Food planning.", extra: "Review minutes before joining.", date: "2025-12-28" },
     'monthly-jan': { title: "Monthly Family Update", time: "Jan 11 • 4:00 PM", location: "Zoom", desc: "Kick-off 2026 planning.", extra: "Vote on T-shirts.", date: "2026-01-11" }
 };
 
-// Event date mapping for calendar
-const eventDateMap = {
+// Event date mapping for calendar (will be populated from Supabase or defaults)
+let eventDateMap = {
     '2025-12-14': 'monthly-dec',
     '2025-12-28': 'planning-dec',
     '2026-01-11': 'monthly-jan'
 };
+
+// Load events from Supabase
+async function loadEventsFromSupabase() {
+    const result = await getEventsFromSupabase();
+    
+    if (result.success && result.data && result.data.length > 0) {
+        // Clear existing data
+        eventData = {};
+        eventDateMap = {};
+        
+        // Populate from Supabase
+        result.data.forEach(event => {
+            const formatted = formatSupabaseEvent(event);
+            const eventId = `event-${event.id}`;
+            eventData[eventId] = formatted;
+            eventDateMap[event.event_date] = eventId;
+        });
+        
+        console.log('✅ Events loaded from Supabase');
+    }
+}
 
 function openModal(eventId) {
     const data = eventData[eventId];
@@ -396,7 +436,21 @@ const userData = {
 };
 
 function getUserData(userId) {
-    // First check localStorage for registered users
+    // Check cachedRegistrations first (from Supabase)
+    if (cachedRegistrations && cachedRegistrations.length > 0) {
+        const registration = cachedRegistrations.find(r => r.id === userId);
+        if (registration) {
+            return {
+                name: registration.name,
+                branch: registration.branch,
+                signedUp: new Date(registration.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                extra: `Birthday: ${registration.birthday || 'Not provided'}<br>Shirt Size: ${registration.shirt_size || 'Not selected'}<br>Household Members: ${registration.household_members || 'Not specified'}<br><br>${registration.names_ages || ''}`,
+                profilePhoto: registration.profile_photo || null
+            };
+        }
+    }
+    
+    // Check localStorage for registered users
     const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
     const registration = registrations.find(r => r.id === userId);
     
@@ -443,44 +497,77 @@ function openUserModal(userId) {
     lucide.createIcons();
 }
 
-function loadAttendanceTable() {
+// Cache for Supabase registrations
+let cachedRegistrations = [];
+
+async function loadAttendanceTable() {
     const attendanceTable = document.getElementById('attendance-table-body');
     if (!attendanceTable) return;
     
-    // Get registrations from localStorage
-    const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+    // Show loading state
+    attendanceTable.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-sand-500"><i data-lucide="loader-2" class="animate-spin w-6 h-6 inline-block"></i> Loading...</td></tr>';
+    lucide.createIcons();
     
-    // Combine with hardcoded users (don't duplicate)
+    // Try to get registrations from Supabase first
+    const result = await getRegistrationsFromSupabase();
+    
+    let allUsers = [];
+    
+    if (result.success && result.data) {
+        // Use Supabase data
+        cachedRegistrations = result.data;
+        allUsers = result.data.map(reg => ({
+            id: reg.id,
+            name: reg.name,
+            branch: reg.branch,
+            signedUp: new Date(reg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            created_at: reg.created_at
+        }));
+    } else {
+        // Fall back to localStorage
+        const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        allUsers = [...registrations];
+    }
+    
+    // Add hardcoded users if not present (for demo purposes)
     const hardcodedUserIds = ['marcus-robinson', 'sarah-jenkins'];
-    const allUsers = [...registrations];
-    
     hardcodedUserIds.forEach(userId => {
-        if (!registrations.find(r => r.id === userId)) {
+        if (!allUsers.find(r => r.id === userId || (r.name && r.name.toLowerCase().replace(/\s+/g, '-') === userId))) {
             const user = userData[userId];
-            allUsers.push({
-                id: userId,
-                name: user.name,
-                branch: user.branch,
-                signedUp: user.signedUp
-            });
+            if (user) {
+                allUsers.push({
+                    id: userId,
+                    name: user.name,
+                    branch: user.branch,
+                    signedUp: user.signedUp
+                });
+            }
         }
     });
     
     // Sort by sign-up date (most recent first)
-    allUsers.sort((a, b) => new Date(b.signedUp) - new Date(a.signedUp));
+    allUsers.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at) : new Date(a.signedUp);
+        const dateB = b.created_at ? new Date(b.created_at) : new Date(b.signedUp);
+        return dateB - dateA;
+    });
     
     // Generate table rows
     let tableHTML = '';
-    allUsers.forEach(user => {
-        const userId = user.id || user.name.toLowerCase().replace(/\s+/g, '-');
-        tableHTML += `
-            <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 transition-colors cursor-pointer" onclick="openUserModal('${userId}')">
-                <td class="py-4 px-6 font-bold text-sand-900 dark:text-white">${user.name}</td>
-                <td class="py-4 px-6 text-sand-600 dark:text-sand-400">${user.branch}</td>
-                <td class="py-4 px-6 text-sand-500 dark:text-sand-400">${user.signedUp}</td>
-            </tr>
-        `;
-    });
+    if (allUsers.length === 0) {
+        tableHTML = '<tr><td colspan="3" class="py-8 text-center text-sand-500">No registrations yet. Be the first to register!</td></tr>';
+    } else {
+        allUsers.forEach(user => {
+            const oderId = user.id || user.name.toLowerCase().replace(/\s+/g, '-');
+            tableHTML += `
+                <tr class="even:bg-sand-50 dark:even:bg-sand-800/50 hover:bg-brand-50 transition-colors cursor-pointer" onclick="openUserModal('${oderId}')">
+                    <td class="py-4 px-6 font-bold text-sand-900 dark:text-white">${user.name}</td>
+                    <td class="py-4 px-6 text-sand-600 dark:text-sand-400">${user.branch}</td>
+                    <td class="py-4 px-6 text-sand-500 dark:text-sand-400">${user.signedUp}</td>
+                </tr>
+            `;
+        });
+    }
     
     attendanceTable.innerHTML = tableHTML;
 }
@@ -494,8 +581,16 @@ function closeUserModal() {
 }
 
 // Initial Load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize Supabase
+    initSupabase();
+    
+    // Load events from Supabase (if configured)
+    await loadEventsFromSupabase();
+    
+    // Route to home page
     route(null, 'home');
+    
     // Update countdown every minute
     setInterval(updateCountdown, 60000);
     

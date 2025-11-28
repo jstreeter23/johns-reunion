@@ -119,28 +119,22 @@
     </div>
 
     <div id="photo-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closePhotoModal()"></div>
+        <div class="fixed inset-0 bg-black/90 backdrop-blur-sm transition-opacity" onclick="closePhotoModal()"></div>
         <div class="fixed inset-0 z-10 w-screen overflow-y-auto flex items-center justify-center p-4">
-            <div class="relative max-w-3xl w-full">
-                <div class="relative bg-white dark:bg-sand-900 rounded-2xl overflow-hidden shadow-2xl">
-                    <button type="button" onclick="closePhotoModal()" class="absolute top-4 right-4 z-20 rounded-full p-2 bg-white/90 dark:bg-sand-800/90 hover:bg-white dark:hover:bg-sand-700 text-sand-900 dark:text-white transition-colors shadow-lg" aria-label="Close">
-                        <i data-lucide="x" class="w-5 h-5"></i>
+            <div class="relative max-w-4xl w-full">
+                <div class="relative rounded-2xl overflow-hidden shadow-2xl">
+                    <button type="button" onclick="closePhotoModal()" class="absolute top-4 right-4 z-20 rounded-full p-2 bg-black/50 hover:bg-black/70 text-white transition-colors" aria-label="Close">
+                        <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
-                    <img id="photo-modal-image" src="" alt="" class="w-full h-auto max-h-[60vh] object-contain">
-                    <div class="p-6 bg-white dark:bg-sand-900 border-t border-sand-200 dark:border-sand-800">
-                        <h3 id="photo-modal-title" class="text-2xl font-serif font-bold text-sand-900 dark:text-white mb-2"></h3>
-                        <p id="photo-modal-subtitle" class="text-sand-500 dark:text-sand-400 text-sm"></p>
-                    </div>
+                    <img id="photo-modal-image" src="" alt="Family Photo" class="w-full h-auto max-h-[75vh] object-contain bg-black">
                 </div>
-                <div class="flex justify-center gap-4 mt-4">
-                    <button onclick="navigatePhoto(-1)" class="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-colors" aria-label="Previous photo">
-                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                <div class="flex justify-center items-center gap-6 mt-6">
+                    <button onclick="navigatePhoto(-1)" class="p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-colors" aria-label="Previous photo">
+                        <i data-lucide="chevron-left" class="w-8 h-8"></i>
                     </button>
-                    <button onclick="closePhotoModal()" class="px-6 py-3 rounded-full bg-white dark:bg-sand-800 text-sand-900 dark:text-white font-medium hover:bg-sand-100 dark:hover:bg-sand-700 transition-colors">
-                        Close
-                    </button>
-                    <button onclick="navigatePhoto(1)" class="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-colors" aria-label="Next photo">
-                        <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                    <span class="text-white/60 text-sm" id="photo-counter">1 / 7</span>
+                    <button onclick="navigatePhoto(1)" class="p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-colors" aria-label="Next photo">
+                        <i data-lucide="chevron-right" class="w-8 h-8"></i>
                     </button>
                 </div>
             </div>

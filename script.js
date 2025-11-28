@@ -325,8 +325,23 @@ function closeModal() {
 // 6. Gallery Logic
 function scrollGallery(direction) {
     const container = document.getElementById('gallery-scroll');
-    const amount = container.clientWidth * 0.8;
-    container.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    const scrollAmount = container.clientWidth * 0.8;
+    
+    if (direction === 'right') {
+        // If near the end, loop back to start
+        if (container.scrollLeft + container.clientWidth >= container.scrollWidth - 50) {
+            container.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    } else {
+        // If at the start, loop to end
+        if (container.scrollLeft <= 50) {
+            container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+        } else {
+            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        }
+    }
 }
 
 // 7. Countdown Logic
@@ -358,21 +373,13 @@ function updateCountdown() {
 
 // 8. Photo Modal Logic
 const photoData = [
-    {
-        src: 'https://images.unsplash.com/photo-1522770179533-24471fcdba45?w=1200&h=800&fit=crop',
-        title: 'The Big Picnic',
-        subtitle: 'Last Year - Family gathering at the park'
-    },
-    {
-        src: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&h=800&fit=crop',
-        title: 'Uncle Ray\'s Fish Fry',
-        subtitle: 'Delicious food and great company'
-    },
-    {
-        src: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&h=800&fit=crop',
-        title: 'Talent Show Night',
-        subtitle: 'Family members showcasing their talents'
-    }
+    { src: 'Photos/Curtis and Willie Alice.png' },
+    { src: 'Photos/IMG_9092.jpg' },
+    { src: 'Photos/IMG_9094.jpg' },
+    { src: 'Photos/IMG_9095.jpg' },
+    { src: 'Photos/IMG_9096.jpg' },
+    { src: 'Photos/IMG_9097.jpg' },
+    { src: 'Photos/IMG_9098.jpg' }
 ];
 
 let currentPhotoIndex = 0;
@@ -382,14 +389,14 @@ function openPhotoModal(index) {
     const photo = photoData[index];
     const modal = document.getElementById('photo-modal');
     const modalImage = document.getElementById('photo-modal-image');
-    const modalTitle = document.getElementById('photo-modal-title');
-    const modalSubtitle = document.getElementById('photo-modal-subtitle');
+    const counter = document.getElementById('photo-counter');
     
     if (modal && photo) {
         modalImage.src = photo.src;
-        modalImage.alt = photo.title;
-        modalTitle.textContent = photo.title;
-        modalSubtitle.textContent = photo.subtitle;
+        modalImage.alt = 'Family Photo';
+        if (counter) {
+            counter.textContent = `${index + 1} / ${photoData.length}`;
+        }
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden'; // Prevent background scrolling
         lucide.createIcons();

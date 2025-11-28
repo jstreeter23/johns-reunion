@@ -10,16 +10,35 @@ A modern, responsive website built for the upcoming Johns Family Reunion. This p
 
 ## ✨ Features
 
+### Core Experience
 * **⚡ Simulated SPA Experience:** Fast, app-like navigation without page reloads using a lightweight vanilla JS router.
 * **🎨 Custom Design System:** Earthy "Rooted in Love" color palette using Tailwind CSS with custom `brand` and `sand` themes.
 * **🌗 Dark Mode:** Fully supported dark mode that respects user system preferences and includes a manual toggle.
 * **📱 Mobile-First:** Responsive navigation that adapts from a desktop header to a mobile drawer menu.
-* **📅 Event Calendar:** Interactive calendar with tabs to toggle between timeline and grid view, with modal pop-ups for event details.
-* **📸 Photo Gallery:** Horizontal snap-scroll gallery with lightbox modal for viewing family memories.
 * **⏳ Countdown Ticker:** Dynamic countdown showing days until the reunion.
-* **👤 User Profiles:** Attendee detail modals with profile photos and registration info.
+
+### Photo Gallery
+* **📸 Infinite Loop Gallery:** Horizontal snap-scroll gallery with family photos that loops continuously.
+* **🖼️ Full Image Preview:** Photos displayed with `object-contain` so faces are never cropped.
+* **🔍 Lightbox Modal:** Click any photo to view full-size with navigation arrows and photo counter.
+* **↔️ Swipe Navigation:** Swipe or use arrows to browse photos in both directions.
+
+### Calendar & Events
+* **📅 Dual View Calendar:** Toggle between timeline view and calendar grid view.
+* **🔄 Dynamic Events:** Events load from Supabase in real-time.
+* **📋 Event Modals:** Click any event to see full details in a pop-up.
+
+### Attendance Tracking
+* **👥 Scrollable Table:** Fixed-height table that scrolls internally (page doesn't scroll).
+* **🏷️ Branch Filtering:** Filter attendees by family branch (William Johns, Milton Johns, etc.).
+* **📊 Live Count:** Shows total attendees or filtered count dynamically.
+* **👤 User Profiles:** Click any attendee to see their profile modal with birthday and photo.
+
+### Forms & Submissions
 * **📝 Registration Form:** Complete participant form with shirt sizes, birthday, and optional photo upload.
-* **💡 Ideas Submission:** Form for family members to submit activity ideas.
+* **✅ Visual Confirmations:** Beautiful success overlays after form submissions (no browser alerts).
+* **💡 Ideas Submission:** Form for family members to submit activity ideas with instant feedback.
+* **🔄 Real-time Sync:** All submissions save to Supabase and appear immediately.
 
 ## 🛠️ Tech Stack
 
@@ -47,8 +66,16 @@ johns-reunion/
 ├── home.html           # Landing page with gallery and countdown
 ├── calendar.html       # Event schedule (timeline + calendar views)
 ├── ideas.html          # Idea submission form
-├── attendance.html     # List of attendees
-└── register.html       # Registration form
+├── attendance.html     # Attendee list with branch filtering
+├── register.html       # Registration form
+└── Photos/             # Family photo gallery images
+    ├── Curtis and Willie Alice.png
+    ├── IMG_9092.jpg
+    ├── IMG_9094.jpg
+    ├── IMG_9095.jpg
+    ├── IMG_9096.jpg
+    ├── IMG_9097.jpg
+    └── IMG_9098.jpg
 ```
 
 ---

@@ -23,8 +23,10 @@ async function route(event, viewId) {
         
         // Initialize calendar view if calendar page is loaded
         if (viewId === 'calendar') {
-            setTimeout(() => {
-                // Ensure calendar view starts with events tab
+            setTimeout(async () => {
+                // Load events from Supabase first
+                await loadEventsFromSupabase();
+                // Then render the events view
                 switchCalendarView('events');
             }, 100);
         }
@@ -160,17 +162,24 @@ async function handleIdeaSubmit(e) {
     btn.disabled = true;
     lucide.createIcons();
 
-    // Get form data
-    const nameInput = document.querySelector('#idea-form input[type="text"]');
-    const ideaInput = document.querySelector('#idea-form textarea');
-    const name = nameInput ? nameInput.value : 'Anonymous';
-    const idea = ideaInput ? ideaInput.value : '';
+    // Get form data using IDs
+    const name = document.getElementById('idea-name').value || 'Anonymous';
+    const idea = document.getElementById('idea-text').value || '';
     
     // Try Supabase first, fall back to localStorage
     const result = await submitIdeaToSupabase(name, idea);
     
-    if (result.fallback || !result.success) {
-        // Use localStorage as fallback
+    if (result.fallback) {
+        // Use localStorage as fallback (Supabase not configured)
+        let ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
+        ideas.push({ name, idea, created_at: new Date().toISOString() });
+        localStorage.setItem('reunionIdeas', JSON.stringify(ideas));
+        console.log('💾 Idea saved to localStorage (Supabase not configured)');
+    } else if (result.success) {
+        console.log('✅ Idea submitted to Supabase successfully!');
+    } else {
+        console.error('❌ Failed to submit idea:', result.error);
+        // Still save to localStorage as backup
         let ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
         ideas.push({ name, idea, created_at: new Date().toISOString() });
         localStorage.setItem('reunionIdeas', JSON.stringify(ideas));
@@ -218,8 +227,62 @@ async function loadEventsFromSupabase() {
             eventDateMap[event.event_date] = eventId;
         });
         
-        console.log('✅ Events loaded from Supabase');
+        console.log('✅ Events loaded from Supabase:', result.data.length, 'events');
+        return true;
     }
+    console.log('⚠️ No events from Supabase, using defaults');
+    return false;
+}
+
+// Render events timeline dynamically
+function renderEventsTimeline() {
+    const timeline = document.getElementById('events-timeline');
+    if (!timeline) return;
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Get all events and sort by date
+    const events = Object.entries(eventData).map(([id, event]) => ({
+        id,
+        ...event
+    })).sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    if (events.length === 0) {
+        timeline.innerHTML = '<div class="py-8 text-center text-sand-500">No upcoming events.</div>';
+        return;
+    }
+    
+    let html = '';
+    events.forEach((event, index) => {
+        const date = new Date(event.date);
+        const month = monthNames[date.getMonth()];
+        const day = date.getDate();
+        const isFirst = index === 0;
+        
+        // Extract time from the time string (e.g., "Dec 14 • 4:00 PM" -> "4:00 PM")
+        const timeParts = event.time.split('•');
+        const timeOnly = timeParts.length > 1 ? timeParts[1].trim() : '';
+        
+        html += `
+            <div class="relative pl-24 py-6 group cursor-pointer" onclick="openModal('${event.id}')">
+                <div class="absolute left-2 top-6 w-12 h-12 ${isFirst ? 'bg-brand-600 text-white' : 'bg-white dark:bg-sand-700 text-sand-800 dark:text-sand-200'} rounded-xl flex flex-col items-center justify-center shadow-lg border-4 border-sand-50 dark:border-sand-900 z-10">
+                    <span class="text-[10px] uppercase font-bold">${month}</span>
+                    <span class="text-lg font-bold leading-none">${day}</span>
+                </div>
+                <div class="bg-white dark:bg-sand-800 p-6 rounded-2xl border border-sand-200 dark:border-sand-700 shadow-sm hover:shadow-md transition-all group-hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-xl font-bold font-serif">${event.title}</h3>
+                        ${timeOnly ? `<span class="bg-brand-100 dark:bg-brand-900 text-brand-800 dark:text-brand-300 text-xs font-bold px-3 py-1 rounded-full">${timeOnly}</span>` : ''}
+                    </div>
+                    <p class="text-sand-500 dark:text-sand-400">${event.desc || ''}</p>
+                    ${event.location ? `<p class="text-sand-400 dark:text-sand-500 text-sm mt-2 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> ${event.location}</p>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    timeline.innerHTML = html;
+    lucide.createIcons();
 }
 
 function openModal(eventId) {
@@ -345,6 +408,7 @@ function switchCalendarView(view) {
         tabEvents.classList.remove('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
         tabCalendar.classList.remove('bg-brand-600', 'text-white', 'shadow-md');
         tabCalendar.classList.add('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
+        renderEventsTimeline(); // Render the events timeline
     } else {
         eventsView.classList.add('hidden');
         calendarView.classList.remove('hidden');

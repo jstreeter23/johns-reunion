@@ -134,8 +134,18 @@ async function handleRegistration(e) {
     // Try Supabase first, fall back to localStorage
     const result = await submitRegistrationToSupabase(formData);
     
-    if (result.fallback || !result.success) {
-        // Use localStorage as fallback
+    if (result.fallback) {
+        // Supabase not configured - use localStorage
+        console.log('⚠️ Supabase not configured, saving to localStorage');
+        const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
+        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        registrations.push({ id: userId, ...formData });
+        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+    } else if (result.success) {
+        console.log('✅ Registration saved to Supabase!', result.data);
+    } else {
+        // Supabase error - save to localStorage as backup
+        console.error('❌ Supabase error:', result.error);
         const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
         let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
         registrations.push({ id: userId, ...formData });
@@ -145,11 +155,23 @@ async function handleRegistration(e) {
     // Reset form
     e.target.reset();
     uploadedPhotoData = null;
-    document.getElementById('photo-preview').classList.add('hidden');
+    const photoPreview = document.getElementById('photo-preview');
+    if (photoPreview) photoPreview.classList.add('hidden');
     submitBtn.innerHTML = originalText;
     submitBtn.disabled = false;
     
-    alert("Registration Submitted! Welcome to the family.");
+    // Show success overlay
+    const successOverlay = document.getElementById('registration-success');
+    if (successOverlay) {
+        successOverlay.classList.remove('hidden');
+        lucide.createIcons();
+    }
+}
+
+function goToHome() {
+    // Hide success overlay and navigate home
+    const successOverlay = document.getElementById('registration-success');
+    if (successOverlay) successOverlay.classList.add('hidden');
     route(null, 'home');
 }
 
@@ -487,14 +509,14 @@ const userData = {
         name: 'Marcus Robinson',
         branch: 'William Johns',
         signedUp: 'Oct 12, 2025',
-        extra: 'Marcus is bringing 3 family members and is interested in helping with the planning committee activities.',
+        birthday: 'March 15, 1985',
         profilePhoto: null
     },
     'sarah-jenkins': {
         name: 'Sarah Jenkins',
         branch: 'Alice Walker',
         signedUp: 'Oct 14, 2025',
-        extra: 'Sarah is bringing 2 family members and has volunteered to help with food & catering planning.',
+        birthday: 'July 22, 1990',
         profilePhoto: null
     }
 };
@@ -504,11 +526,17 @@ function getUserData(userId) {
     if (cachedRegistrations && cachedRegistrations.length > 0) {
         const registration = cachedRegistrations.find(r => r.id === userId);
         if (registration) {
+            // Format birthday nicely
+            let birthdayDisplay = 'Not provided';
+            if (registration.birthday) {
+                const bday = new Date(registration.birthday);
+                birthdayDisplay = bday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            }
             return {
                 name: registration.name,
                 branch: registration.branch,
                 signedUp: new Date(registration.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                extra: `Birthday: ${registration.birthday || 'Not provided'}<br>Shirt Size: ${registration.shirt_size || 'Not selected'}<br>Household Members: ${registration.household_members || 'Not specified'}<br><br>${registration.names_ages || ''}`,
+                birthday: birthdayDisplay,
                 profilePhoto: registration.profile_photo || null
             };
         }
@@ -519,11 +547,17 @@ function getUserData(userId) {
     const registration = registrations.find(r => r.id === userId);
     
     if (registration) {
+        // Format birthday nicely
+        let birthdayDisplay = 'Not provided';
+        if (registration.birthday) {
+            const bday = new Date(registration.birthday);
+            birthdayDisplay = bday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
         return {
             name: registration.name,
             branch: registration.branch,
             signedUp: registration.signedUp,
-            extra: `Birthday: ${registration.birthday || 'Not provided'}<br>Shirt Size: ${registration.shirtSize || 'Not selected'}<br>Household Members: ${registration.householdMembers || 'Not specified'}<br><br>${registration.namesAges || ''}`,
+            birthday: birthdayDisplay,
             profilePhoto: registration.profilePhoto || null
         };
     }
@@ -544,7 +578,7 @@ function openUserModal(userId) {
     document.getElementById('user-modal-name').textContent = user.name;
     document.getElementById('user-modal-branch').textContent = user.branch;
     document.getElementById('user-modal-date').textContent = user.signedUp;
-    document.getElementById('user-modal-extra').innerHTML = user.extra;
+    document.getElementById('user-modal-birthday').textContent = user.birthday || 'Not provided';
     
     // Handle profile photo
     if (user.profilePhoto) {
@@ -579,6 +613,7 @@ async function loadAttendanceTable() {
     
     if (result.success && result.data) {
         // Use Supabase data
+        console.log('✅ Loaded', result.data.length, 'registrations from Supabase');
         cachedRegistrations = result.data;
         allUsers = result.data.map(reg => ({
             id: reg.id,
@@ -587,8 +622,14 @@ async function loadAttendanceTable() {
             signedUp: new Date(reg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             created_at: reg.created_at
         }));
+    } else if (result.fallback) {
+        // Supabase not configured - fall back to localStorage
+        console.log('⚠️ Supabase not configured, loading from localStorage');
+        const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        allUsers = [...registrations];
     } else {
-        // Fall back to localStorage
+        // Supabase error - fall back to localStorage
+        console.error('❌ Error loading from Supabase:', result.error);
         const registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
         allUsers = [...registrations];
     }

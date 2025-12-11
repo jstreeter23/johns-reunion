@@ -289,6 +289,47 @@ git push origin main
   - More restrictive RLS policies
   - Admin authentication for data management
 
+## 🔐 Admin Dashboard
+
+The admin dashboard allows authorized users to manage events and attendees without setting up full authentication.
+
+### Accessing the Admin Dashboard
+
+1. Navigate to `/admin.html` or use the route: `route(event, 'admin')` in the browser console
+2. Enter the password (stored in `admin-config.js`)
+3. Slide the lock to unlock the dashboard
+
+### Setting Up the Password
+
+1. The password is stored in `admin-config.js` (this file is gitignored for security)
+2. If the file doesn't exist, create it with:
+   ```javascript
+   const ADMIN_PASSWORD = 'your-password-here';
+   ```
+3. Change the password weekly by editing `admin-config.js`
+4. Share the password privately with authorized users
+
+### Admin Features
+
+- **Events Management:**
+  - Create new events
+  - Edit existing events
+  - Delete events
+  - All changes sync with Supabase immediately
+
+- **Attendees Management:**
+  - View all registered attendees
+  - Edit attendee information
+  - Delete attendees
+  - All changes sync with Supabase immediately
+
+### Security Notes
+
+- The password is stored in `admin-config.js` which is excluded from Git (see `.gitignore`)
+- Session-based unlock: Once unlocked, the dashboard stays unlocked for the browser session
+- No username required - just password protection
+- Change password weekly for better security
+
 ## 🆕 Recent Updates
 
 ### Registration Form Improvements

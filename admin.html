@@ -1,0 +1,222 @@
+<div class="max-w-7xl mx-auto w-full">
+    <!-- Lock Screen -->
+    <div id="admin-lock-screen" class="min-h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div class="w-full max-w-md">
+            <div class="bg-white dark:bg-sand-800 rounded-2xl shadow-xl border border-sand-200 dark:border-sand-700 p-8">
+                <div class="text-center mb-8">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 mb-4">
+                        <i data-lucide="lock" class="h-8 w-8 text-brand-600 dark:text-brand-400" id="lock-icon"></i>
+                    </div>
+                    <h2 class="text-2xl font-serif font-bold text-sand-900 dark:text-white mb-2">Admin Dashboard</h2>
+                    <p class="text-sm text-sand-500 dark:text-sand-400">Enter password to unlock</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-2 ml-1">Password</label>
+                        <input 
+                            type="password" 
+                            id="admin-password-input" 
+                            placeholder="Enter password..."
+                            class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"
+                            onkeypress="if(event.key === 'Enter') attemptUnlock()"
+                        >
+                        <p id="admin-error-message" class="mt-2 text-sm text-red-500 hidden"></p>
+                    </div>
+                    
+                    <div class="relative mt-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold uppercase text-sand-500">Unlock</span>
+                            <span class="text-xs text-sand-400" id="lock-status">Locked</span>
+                        </div>
+                        <div class="relative h-12 bg-sand-100 dark:bg-sand-800 rounded-full overflow-hidden">
+                            <div id="lock-slider" class="absolute left-0 top-0 h-full w-12 bg-brand-600 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer" onclick="attemptUnlock()">
+                                <i data-lucide="lock" class="h-5 w-5 text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="admin-dashboard" class="hidden">
+        <div class="mb-8">
+            <h1 class="text-4xl font-serif font-bold text-sand-900 dark:text-white mb-2">Admin Dashboard</h1>
+            <p class="text-sand-500 dark:text-sand-400">Manage events and attendees</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex space-x-2 mb-6 border-b border-sand-200 dark:border-sand-700">
+            <button onclick="switchAdminTab('events')" id="admin-tab-events" class="admin-tab px-6 py-3 font-medium text-sm border-b-2 border-brand-600 text-brand-600 dark:text-brand-400">
+                Events
+            </button>
+            <button onclick="switchAdminTab('attendees')" id="admin-tab-attendees" class="admin-tab px-6 py-3 font-medium text-sm border-b-2 border-transparent text-sand-500 dark:text-sand-400 hover:text-brand-600 dark:hover:text-brand-400">
+                Attendees
+            </button>
+        </div>
+
+        <!-- Events Tab -->
+        <div id="admin-events-tab" class="admin-tab-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-serif font-bold text-sand-900 dark:text-white">Events</h2>
+                <button onclick="openEventModal(null)" class="px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-500 transition-colors flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Create Event</span>
+                </button>
+            </div>
+            
+            <div id="admin-events-list" class="space-y-4">
+                <!-- Events will be loaded here -->
+                <div class="text-center py-8 text-sand-500">Loading events...</div>
+            </div>
+        </div>
+
+        <!-- Attendees Tab -->
+        <div id="admin-attendees-tab" class="admin-tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-serif font-bold text-sand-900 dark:text-white">Attendees</h2>
+            </div>
+            
+            <div id="admin-attendees-list" class="space-y-4">
+                <!-- Attendees will be loaded here -->
+                <div class="text-center py-8 text-sand-500">Loading attendees...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal (Create/Edit) -->
+    <div id="admin-event-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-sand-900/60 backdrop-blur-sm transition-opacity" onclick="closeEventModal()"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-sand-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl border border-sand-200 dark:border-sand-700">
+                    <div class="absolute right-4 top-4 z-20">
+                        <button type="button" onclick="closeEventModal()" class="rounded-full p-2 bg-sand-100 dark:bg-sand-800 text-sand-500 hover:text-brand-600 transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 sm:p-8">
+                        <h3 class="text-2xl font-serif font-bold text-sand-900 dark:text-white mb-6" id="event-modal-title">Create Event</h3>
+                        <form id="admin-event-form" onsubmit="saveEvent(event)" class="space-y-4">
+                            <input type="hidden" id="event-id" value="">
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Title *</label>
+                                <input type="text" id="event-title" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            </div>
+                            
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Date *</label>
+                                    <input type="date" id="event-date" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Time</label>
+                                    <input type="text" id="event-time" placeholder="e.g., 4:00 PM" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Location</label>
+                                <input type="text" id="event-location" placeholder="e.g., Zoom, Venue Name" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Description</label>
+                                <textarea id="event-description" rows="3" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Extra Info</label>
+                                <textarea id="event-extra" rows="2" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all"></textarea>
+                            </div>
+                            
+                            <div class="flex gap-3 pt-4">
+                                <button type="submit" class="flex-1 px-4 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-500 transition-colors font-medium">
+                                    Save Event
+                                </button>
+                                <button type="button" onclick="closeEventModal()" class="px-4 py-3 bg-sand-200 dark:bg-sand-700 text-sand-700 dark:text-sand-300 rounded-xl hover:bg-sand-300 dark:hover:bg-sand-600 transition-colors font-medium">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendee Modal (Edit) -->
+    <div id="admin-attendee-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-sand-900/60 backdrop-blur-sm transition-opacity" onclick="closeAttendeeModal()"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-sand-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl border border-sand-200 dark:border-sand-700">
+                    <div class="absolute right-4 top-4 z-20">
+                        <button type="button" onclick="closeAttendeeModal()" class="rounded-full p-2 bg-sand-100 dark:bg-sand-800 text-sand-500 hover:text-brand-600 transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 sm:p-8">
+                        <h3 class="text-2xl font-serif font-bold text-sand-900 dark:text-white mb-6">Edit Attendee</h3>
+                        <form id="admin-attendee-form" onsubmit="saveAttendee(event)" class="space-y-4">
+                            <input type="hidden" id="attendee-id" value="">
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Name *</label>
+                                <input type="text" id="attendee-name" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            </div>
+                            
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Email *</label>
+                                    <input type="email" id="attendee-email" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Mobile *</label>
+                                    <input type="tel" id="attendee-mobile" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Address</label>
+                                <input type="text" id="attendee-address" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            </div>
+                            
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Family Branch *</label>
+                                    <select id="attendee-branch" required class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                        <option value="">Select Branch</option>
+                                        <option value="William Johns">William Johns</option>
+                                        <option value="Milton Johns">Milton Johns</option>
+                                        <option value="John Johns">John Johns</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Birthday (MM/DD)</label>
+                                    <input type="text" id="attendee-birthday" placeholder="MM/DD" pattern="\d{2}/\d{2}" class="w-full bg-sand-50 dark:bg-sand-900/50 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-3 pt-4">
+                                <button type="submit" class="flex-1 px-4 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-500 transition-colors font-medium">
+                                    Save Changes
+                                </button>
+                                <button type="button" onclick="closeAttendeeModal()" class="px-4 py-3 bg-sand-200 dark:bg-sand-700 text-sand-700 dark:text-sand-300 rounded-xl hover:bg-sand-300 dark:hover:bg-sand-600 transition-colors font-medium">
+                                    Cancel
+                                </button>
+                                <button type="button" onclick="deleteAttendee()" class="px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-500 transition-colors font-medium">
+                                    Delete
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

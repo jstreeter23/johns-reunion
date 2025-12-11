@@ -60,6 +60,45 @@ async function route(event, viewId) {
                 switchIdeasView('submit');
             }, 100);
         }
+        
+        // Initialize admin dashboard if admin page is loaded
+        if (viewId === 'admin') {
+            // Load admin scripts dynamically
+            setTimeout(() => {
+                // Check if admin scripts are already loaded
+                if (typeof checkUnlockStatus === 'undefined') {
+                    // Load admin-config.js first, then admin.js
+                    const configScript = document.createElement('script');
+                    configScript.src = 'admin-config.js';
+                    configScript.onerror = () => {
+                        console.error('Failed to load admin-config.js. Please ensure the file exists.');
+                        const contentContainer = document.getElementById('page-content');
+                        contentContainer.innerHTML = `
+                            <div class="text-center py-12">
+                                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md mx-auto">
+                                    <h3 class="text-xl font-bold text-red-600 dark:text-red-400 mb-2">Configuration Error</h3>
+                                    <p class="text-sm text-red-700 dark:text-red-300">admin-config.js file not found. Please create this file with your admin password.</p>
+                                </div>
+                            </div>
+                        `;
+                    };
+                    configScript.onload = () => {
+                        const adminScript = document.createElement('script');
+                        adminScript.src = 'admin.js';
+                        adminScript.onerror = () => {
+                            console.error('Failed to load admin.js');
+                        };
+                        document.body.appendChild(adminScript);
+                    };
+                    document.body.appendChild(configScript);
+                } else {
+                    // Scripts already loaded, just check unlock status
+                    if (typeof checkUnlockStatus !== 'undefined') {
+                        checkUnlockStatus();
+                    }
+                }
+            }, 100);
+        }
     } catch (error) {
         console.error("Failed to load page:", error);
         contentContainer.innerHTML = `<div class="text-center text-red-500">Failed to load page content.</div>`;
@@ -805,25 +844,25 @@ async function handleRegistration(e) {
     
     for (const participantData of allParticipants) {
         const result = await submitRegistrationToSupabase(participantData);
-        
-        if (result.fallback) {
-            // Supabase not configured - use localStorage
-            console.log('⚠️ Supabase not configured, saving to localStorage');
+    
+    if (result.fallback) {
+        // Supabase not configured - use localStorage
+        console.log('⚠️ Supabase not configured, saving to localStorage');
             const userId = participantData.name.toLowerCase().replace(/\s+/g, '-');
-            let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
             registrations.push({ id: userId, ...participantData });
-            localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
             successCount++;
-        } else if (result.success) {
-            console.log('✅ Registration saved to Supabase!', result.data);
+    } else if (result.success) {
+        console.log('✅ Registration saved to Supabase!', result.data);
             successCount++;
-        } else {
-            // Supabase error - save to localStorage as backup
-            console.error('❌ Supabase error:', result.error);
+    } else {
+        // Supabase error - save to localStorage as backup
+        console.error('❌ Supabase error:', result.error);
             const userId = participantData.name.toLowerCase().replace(/\s+/g, '-');
-            let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
             registrations.push({ id: userId, ...participantData });
-            localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
             successCount++; // Still count as success since we saved to localStorage
         }
     }
@@ -1524,7 +1563,7 @@ function getUserData(userId) {
                     zodiacSign = getZodiacSign(month, day);
                 } else {
                     // Legacy date format
-                    const bday = new Date(registration.birthday);
+                const bday = new Date(registration.birthday);
                     const month = String(bday.getMonth() + 1).padStart(2, '0');
                     const day = String(bday.getDate()).padStart(2, '0');
                     birthdayDisplay = `${month}/${day}`;
@@ -1558,7 +1597,7 @@ function getUserData(userId) {
                 zodiacSign = getZodiacSign(month, day);
             } else {
                 // Legacy date format
-                const bday = new Date(registration.birthday);
+            const bday = new Date(registration.birthday);
                 const month = String(bday.getMonth() + 1).padStart(2, '0');
                 const day = String(bday.getDate()).padStart(2, '0');
                 birthdayDisplay = `${month}/${day}`;

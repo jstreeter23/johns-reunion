@@ -187,6 +187,133 @@ function formatSupabaseEvent(event) {
 }
 
 // ============================================
+// ADMIN CRUD OPERATIONS - EVENTS
+// ============================================
+
+async function createEventInSupabase(eventData) {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { data, error } = await supabase
+            .from('events')
+            .insert([{
+                title: eventData.title,
+                event_date: eventData.event_date,
+                event_time: eventData.event_time || null,
+                location: eventData.location || null,
+                description: eventData.description || null,
+                extra_info: eventData.extra_info || null
+            }])
+            .select();
+        
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    } catch (error) {
+        console.error('Error creating event:', error);
+        return { success: false, error };
+    }
+}
+
+async function updateEventInSupabase(eventId, eventData) {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { data, error } = await supabase
+            .from('events')
+            .update({
+                title: eventData.title,
+                event_date: eventData.event_date,
+                event_time: eventData.event_time || null,
+                location: eventData.location || null,
+                description: eventData.description || null,
+                extra_info: eventData.extra_info || null
+            })
+            .eq('id', eventId)
+            .select();
+        
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    } catch (error) {
+        console.error('Error updating event:', error);
+        return { success: false, error };
+    }
+}
+
+async function deleteEventFromSupabase(eventId) {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', eventId);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        return { success: false, error };
+    }
+}
+
+// ============================================
+// ADMIN CRUD OPERATIONS - REGISTRATIONS
+// ============================================
+
+async function updateRegistrationInSupabase(registrationId, registrationData) {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { data, error } = await supabase
+            .from('registrations')
+            .update({
+                name: registrationData.name,
+                email: registrationData.email,
+                mobile: registrationData.mobile,
+                address: registrationData.address || null,
+                branch: registrationData.branch,
+                birthday: registrationData.birthday || null,
+                profile_photo: registrationData.profile_photo || null
+            })
+            .eq('id', registrationId)
+            .select();
+        
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    } catch (error) {
+        console.error('Error updating registration:', error);
+        return { success: false, error };
+    }
+}
+
+async function deleteRegistrationFromSupabase(registrationId) {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('registrations')
+            .delete()
+            .eq('id', registrationId);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting registration:', error);
+        return { success: false, error };
+    }
+}
+
+// ============================================
 // SQL SETUP SCRIPT (Run this in Supabase SQL Editor)
 // ============================================
 /*

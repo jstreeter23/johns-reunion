@@ -1,10 +1,22 @@
 <section id="view-ideas" class="page-view animate-fade-in">
-    <div class="max-w-xl mx-auto">
-        <div class="text-center mb-10">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-6">
             <h2 class="text-3xl md:text-4xl font-serif font-bold mb-3">Share Your Ideas</h2>
             <p class="text-sand-500 dark:text-sand-400">What's on your mind for 2026?</p>
         </div>
-        <div class="bg-white dark:bg-sand-800 rounded-[2rem] p-8 shadow-xl border border-sand-200 dark:border-sand-700 relative overflow-hidden">
+        
+        <!-- Tab Navigation -->
+        <div class="flex justify-center gap-2 mb-6">
+            <button id="tab-submit" onclick="switchIdeasView('submit')" class="px-6 py-3 rounded-full font-medium transition-all bg-brand-600 text-white shadow-md flex items-center gap-2">
+                <i data-lucide="send" class="w-4 h-4"></i> Share Idea
+            </button>
+            <button id="tab-view" onclick="switchIdeasView('view')" class="px-6 py-3 rounded-full font-medium transition-all bg-sand-200 dark:bg-sand-800 text-sand-700 dark:text-sand-300 hover:bg-sand-300 dark:hover:bg-sand-700 flex items-center gap-2">
+                <i data-lucide="lightbulb" class="w-4 h-4"></i> View Ideas
+            </button>
+        </div>
+        
+        <!-- Submit Idea View -->
+        <div id="ideas-submit-view" class="bg-white dark:bg-sand-800 rounded-[2rem] p-8 shadow-xl border border-sand-200 dark:border-sand-700 relative overflow-hidden">
             <form onsubmit="handleIdeaSubmit(event)" id="idea-form" class="space-y-6 relative z-10">
                 <div>
                     <label class="block text-sm font-bold text-sand-700 dark:text-sand-300 mb-2 ml-1">Your Name</label>
@@ -22,6 +34,25 @@
                 <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-4"><i data-lucide="check" class="w-8 h-8"></i></div>
                 <h3 class="text-2xl font-serif font-bold mb-2">Idea Sent!</h3>
                 <button onclick="resetIdeaForm()" class="text-brand-600 dark:text-brand-400 font-bold hover:underline">Send another idea</button>
+            </div>
+        </div>
+        
+        <!-- View Ideas View -->
+        <div id="ideas-view-view" class="hidden bg-white dark:bg-sand-800 rounded-[2rem] p-8 shadow-xl border border-sand-200 dark:border-sand-700 relative overflow-hidden min-h-[500px]">
+            <div id="ideas-container" class="relative w-full h-full min-h-[500px]">
+                <!-- Floating ideas will be added here dynamically -->
+            </div>
+            <div id="ideas-loading" class="absolute inset-0 flex items-center justify-center">
+                <div class="text-center">
+                    <i data-lucide="loader-2" class="animate-spin w-8 h-8 text-brand-600 mx-auto mb-2"></i>
+                    <p class="text-sand-500 dark:text-sand-400">Loading ideas...</p>
+                </div>
+            </div>
+            <div id="ideas-empty" class="hidden absolute inset-0 flex items-center justify-center">
+                <div class="text-center">
+                    <i data-lucide="lightbulb" class="w-16 h-16 text-sand-300 dark:text-sand-700 mx-auto mb-4"></i>
+                    <p class="text-sand-500 dark:text-sand-400 text-lg">No ideas yet. Be the first to share!</p>
+                </div>
             </div>
         </div>
     </div>

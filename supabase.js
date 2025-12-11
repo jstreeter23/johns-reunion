@@ -51,14 +51,9 @@ async function submitRegistrationToSupabase(formData) {
                 name: formData.name,
                 email: formData.email,
                 mobile: formData.mobile,
-                alt_phone: formData.altPhone,
                 address: formData.address,
                 branch: formData.branch,
-                parents_names: formData.parentsNames,
                 birthday: formData.birthday || null,
-                shirt_size: formData.shirtSize,
-                household_members: formData.householdMembers ? parseInt(formData.householdMembers) : null,
-                names_ages: formData.namesAges,
                 profile_photo: formData.profilePhoto
             }])
             .select();
@@ -128,6 +123,25 @@ async function getIdeasFromSupabase() {
         return { success: true, data };
     } catch (error) {
         console.error('Error fetching ideas:', error);
+        return { success: false, error };
+    }
+}
+
+async function deleteAllIdeasFromSupabase() {
+    if (!isSupabaseReady()) {
+        return { success: false, fallback: true };
+    }
+    
+    try {
+        const { data, error } = await supabase
+            .from('ideas')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (using a condition that matches all rows)
+        
+        if (error) throw error;
+        return { success: true, data };
+    } catch (error) {
+        console.error('Error deleting ideas:', error);
         return { success: false, error };
     }
 }

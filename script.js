@@ -40,6 +40,26 @@ async function route(event, viewId) {
                 switchAttendanceView('map');
             }, 100);
         }
+        
+        // Initialize address autocomplete if registration page is loaded
+        if (viewId === 'register') {
+            // Try immediately, and also retry in case API is still loading
+            setTimeout(() => {
+                initializeAddressAutocomplete();
+            }, 100);
+            setTimeout(() => {
+                initializeAddressAutocomplete();
+            }, 1000);
+        }
+        
+        // Initialize ideas view if ideas page is loaded
+        if (viewId === 'ideas') {
+            setTimeout(async () => {
+                // Load ideas and show submit view by default
+                await loadIdeasForDisplay();
+                switchIdeasView('submit');
+            }, 100);
+        }
     } catch (error) {
         console.error("Failed to load page:", error);
         contentContainer.innerHTML = `<div class="text-center text-red-500">Failed to load page content.</div>`;
@@ -108,6 +128,603 @@ function removePhoto() {
     lucide.createIcons();
 }
 
+// Initialize Address Autocomplete using multiple free APIs with fallbacks
+let autocompleteTimeout = null;
+let currentSuggestions = [];
+
+function initializeAddressAutocomplete() {
+    const addressInput = document.getElementById('address');
+    if (addressInput && !addressInput.dataset.autocompleteInitialized) {
+        setupAddressAutocomplete(addressInput);
+        addressInput.dataset.autocompleteInitialized = 'true';
+    }
+    
+    // Initialize for additional participant address fields
+    const participantAddressInputs = document.querySelectorAll('[data-participant-field="address"]');
+    participantAddressInputs.forEach(input => {
+        if (!input.dataset.autocompleteInitialized) {
+            setupAddressAutocomplete(input);
+            input.dataset.autocompleteInitialized = 'true';
+        }
+    });
+}
+
+function setupAddressAutocomplete(input) {
+    let suggestionsContainer = null;
+    let selectedIndex = -1;
+    
+    // Create suggestions dropdown
+    const container = input.parentElement;
+    suggestionsContainer = document.createElement('div');
+    suggestionsContainer.className = 'absolute z-50 w-full mt-1 bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-700 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden';
+    suggestionsContainer.id = `suggestions-${input.id || Math.random().toString(36).substr(2, 9)}`;
+    container.style.position = 'relative';
+    container.appendChild(suggestionsContainer);
+    
+    input.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        
+        // Clear previous timeout
+        if (autocompleteTimeout) {
+            clearTimeout(autocompleteTimeout);
+        }
+        
+        // Hide suggestions if input is empty
+        if (query.length < 2) {
+            suggestionsContainer.classList.add('hidden');
+            currentSuggestions = [];
+            return;
+        }
+        
+        // Debounce API calls - shorter delay for better responsiveness
+        autocompleteTimeout = setTimeout(() => {
+            fetchAddressSuggestions(query, suggestionsContainer, input);
+        }, 200);
+    });
+    
+    input.addEventListener('keydown', function(e) {
+        if (!suggestionsContainer || suggestionsContainer.classList.contains('hidden')) return;
+        
+        const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+            updateSelection(suggestions, selectedIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelection(suggestions, selectedIndex);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            const selected = suggestions[selectedIndex];
+            if (selected) {
+                input.value = selected.dataset.address;
+                suggestionsContainer.classList.add('hidden');
+                currentSuggestions = [];
+            }
+        } else if (e.key === 'Escape') {
+            suggestionsContainer.classList.add('hidden');
+            selectedIndex = -1;
+        }
+    });
+    
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!container.contains(e.target)) {
+            suggestionsContainer.classList.add('hidden');
+        }
+    });
+}
+
+function updateSelection(suggestions, index) {
+    suggestions.forEach((s, i) => {
+        if (i === index) {
+            s.classList.add('bg-brand-100', 'dark:bg-brand-900/50');
+            s.scrollIntoView({ block: 'nearest' });
+        } else {
+            s.classList.remove('bg-brand-100', 'dark:bg-brand-900/50');
+        }
+    });
+}
+
+async function fetchAddressSuggestions(query, container, input) {
+    try {
+        // Try multiple APIs with fallbacks for better reliability
+        // Method 1: Try Nominatim (OpenStreetMap) - more reliable for US addresses
+        try {
+            let cleanQuery = query.trim();
+            
+            // Try multiple query variations to catch different address formats
+            const queries = [
+                cleanQuery, // Original: "5640 S La Brea Avenue Los Angeles 90056"
+                cleanQuery.replace(/\s+/g, ' '), // Normalize spaces
+            ];
+            
+            // If query has a zip code, try without it (sometimes helps)
+            const zipMatch = cleanQuery.match(/\b\d{5}(-\d{4})?\b/);
+            if (zipMatch) {
+                queries.push(cleanQuery.replace(/\b\d{5}(-\d{4})?\b/, '').trim());
+            }
+            
+            let allResults = [];
+            
+            // Try each query variation
+            for (const q of queries) {
+                if (q.length < 2) continue;
+                
+                try {
+                    // Use viewbox to bias towards US (helps with residential addresses)
+                    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=us&limit=15&addressdetails=1&dedupe=1&extratags=1&viewbox=-125.0,24.0,-66.0,49.0&bounded=0`;
+                    const response = await fetch(nominatimUrl, {
+                        headers: {
+                            'User-Agent': 'JohnsFamilyReunion/1.0',
+                            'Accept-Language': 'en-US,en'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.length > 0) {
+                            allResults = allResults.concat(data);
+                        }
+                    }
+                } catch (err) {
+                    // Continue to next query if this one fails
+                    continue;
+                }
+            }
+            
+            // Remove duplicates based on display_name and coordinates
+            const uniqueResults = [];
+            const seen = new Set();
+            for (const item of allResults) {
+                const key = `${item.display_name}|${item.lat}|${item.lon}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueResults.push(item);
+                }
+            }
+            
+            if (uniqueResults.length > 0) {
+                // Prioritize: exact house number matches > house numbers > residential > other
+                const prioritized = uniqueResults.sort((a, b) => {
+                    const aHasHouse = !!(a.address?.house_number);
+                    const bHasHouse = !!(b.address?.house_number);
+                    const aIsHouse = a.type === 'house' || a.class === 'place';
+                    const bIsHouse = b.type === 'house' || b.class === 'place';
+                    const aIsResidential = aIsHouse || a.class === 'building' || a.type === 'residential';
+                    const bIsResidential = bIsHouse || b.class === 'building' || b.type === 'residential';
+                    
+                    // Highest priority: has house number AND is residential
+                    if (aHasHouse && aIsResidential && !(bHasHouse && bIsResidential)) return -1;
+                    if (bHasHouse && bIsResidential && !(aHasHouse && aIsResidential)) return 1;
+                    
+                    // Second: has house number
+                    if (aHasHouse && !bHasHouse) return -1;
+                    if (!aHasHouse && bHasHouse) return 1;
+                    
+                    // Third: is residential
+                    if (aIsResidential && !bIsResidential) return -1;
+                    if (!aIsResidential && bIsResidential) return 1;
+                    
+                    return 0;
+                });
+                
+                const formattedSuggestions = prioritized.slice(0, 8).map(item => ({
+                    display_name: item.display_name,
+                    address: item.address || {},
+                    lat: item.lat,
+                    lon: item.lon,
+                    type: item.type,
+                    class: item.class
+                }));
+                
+                currentSuggestions = formattedSuggestions;
+                displayNominatimSuggestions(formattedSuggestions, container, input);
+                return;
+            }
+        } catch (nominatimError) {
+            console.log('Nominatim failed, trying fallback...', nominatimError);
+        }
+        
+        // Method 2: Fallback to Photon API
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=en`;
+        const photonResponse = await fetch(photonUrl);
+        const photonData = await photonResponse.json();
+        
+        if (photonData.features && photonData.features.length > 0) {
+            // Filter to only United States addresses
+            const usFeatures = photonData.features.filter(feature => {
+                const props = feature.properties || {};
+                const country = (props.country || props.countrycode || '').toLowerCase();
+                const countryCode = (props.countrycode || '').toLowerCase();
+                
+                return country === 'us' || country === 'usa' || country === 'united states' ||
+                       countryCode === 'us' || countryCode === 'usa' ||
+                       props.country === 'United States' || props.country === 'USA';
+            });
+            
+            // Sort: prioritize results with house numbers
+            usFeatures.sort((a, b) => {
+                const aHasNumber = !!(a.properties?.housenumber);
+                const bHasNumber = !!(b.properties?.housenumber);
+                if (aHasNumber && !bHasNumber) return -1;
+                if (!aHasNumber && bHasNumber) return 1;
+                return 0;
+            });
+            
+            const limitedFeatures = usFeatures.slice(0, 5);
+            
+            if (limitedFeatures.length > 0) {
+                currentSuggestions = limitedFeatures;
+                displaySuggestions(limitedFeatures, container, input);
+            } else {
+                container.classList.add('hidden');
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error fetching address suggestions:', error);
+        container.classList.add('hidden');
+    }
+}
+
+function displayNominatimSuggestions(suggestions, container, input) {
+    container.innerHTML = '';
+    selectedIndex = -1;
+    
+    if (suggestions.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    suggestions.forEach((item, index) => {
+        const suggestion = document.createElement('div');
+        suggestion.className = 'suggestion-item px-4 py-3 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors border-b border-sand-100 dark:border-sand-700 last:border-b-0';
+        
+        const addr = item.address || {};
+        const displayName = item.display_name;
+        
+        // Build street address from components
+        let streetAddress = '';
+        const streetParts = [];
+        
+        if (addr.house_number) {
+            streetParts.push(addr.house_number);
+        }
+        
+        // Handle street direction (N, S, E, W, etc.)
+        if (addr.road) {
+            streetParts.push(addr.road);
+        } else if (addr.street) {
+            streetParts.push(addr.street);
+        } else if (addr.pedestrian) {
+            streetParts.push(addr.pedestrian);
+        } else if (addr.path) {
+            streetParts.push(addr.path);
+        }
+        
+        streetAddress = streetParts.join(' ');
+        
+        // Fallback: extract from display_name if components aren't available
+        if (!streetAddress) {
+            // Try to extract street address from display_name
+            const parts = displayName.split(',');
+            streetAddress = parts[0] || displayName;
+        }
+        
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.suburb || '';
+        const state = addr.state || '';
+        const postcode = addr.postcode || '';
+        
+        // Build full formatted address - use display_name if it's well formatted, otherwise construct
+        let fullAddress = displayName;
+        
+        // If display_name doesn't look complete, build our own
+        if (!displayName.includes(city) || !displayName.includes(state)) {
+            const addressParts = [];
+            if (streetAddress) addressParts.push(streetAddress);
+            if (city) addressParts.push(city);
+            if (state) addressParts.push(state);
+            if (postcode) addressParts.push(postcode);
+            fullAddress = addressParts.join(', ');
+        }
+        
+        suggestion.innerHTML = `
+            <div class="font-medium text-sand-900 dark:text-white">${streetAddress || displayName.split(',')[0]}</div>
+            ${(city || state || postcode) ? `<div class="text-sm text-sand-500 dark:text-sand-400">${[city, state, postcode].filter(Boolean).join(', ')}</div>` : ''}
+        `;
+        
+        suggestion.dataset.address = fullAddress;
+        suggestion.addEventListener('click', function() {
+            input.value = fullAddress;
+            container.classList.add('hidden');
+            currentSuggestions = [];
+        });
+        
+        container.appendChild(suggestion);
+    });
+    
+    container.classList.remove('hidden');
+}
+
+function displaySuggestions(features, container, input) {
+    container.innerHTML = '';
+    selectedIndex = -1;
+    
+    features.forEach((feature, index) => {
+        const suggestion = document.createElement('div');
+        suggestion.className = 'suggestion-item px-4 py-3 cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors border-b border-sand-100 dark:border-sand-700 last:border-b-0';
+        
+        // Format address from Photon properties
+        const props = feature.properties || {};
+        
+        // Build street address with house number, direction, and street name
+        let streetAddress = '';
+        if (props.housenumber) {
+            streetAddress = props.housenumber;
+        }
+        
+        // Add street direction (N, S, E, W, etc.) if present
+        if (props.street) {
+            streetAddress += streetAddress ? ` ${props.street}` : props.street;
+        } else if (props.name) {
+            // Check if name contains direction prefix
+            streetAddress += streetAddress ? ` ${props.name}` : props.name;
+        }
+        
+        const city = props.city || props.locality || props.district || '';
+        const state = props.state || '';
+        const postcode = props.postcode || '';
+        
+        // Build full formatted address
+        let fullFormattedAddress = streetAddress || props.name || props.street || '';
+        const addressParts = [];
+        
+        if (fullFormattedAddress) addressParts.push(fullFormattedAddress);
+        if (city) addressParts.push(city);
+        if (state) addressParts.push(state);
+        if (postcode) addressParts.push(postcode);
+        
+        fullFormattedAddress = addressParts.join(', ');
+        
+        // If Photon provides display_name, prefer it but ensure it's complete
+        if (props.display_name && props.display_name.includes(city)) {
+            fullFormattedAddress = props.display_name;
+        }
+        
+        // Build display text (shorter version for dropdown)
+        let displayText = streetAddress || props.name || props.street || '';
+        if (!displayText && props.display_name) {
+            // Extract just the street part from display_name
+            const parts = props.display_name.split(',');
+            displayText = parts[0] || props.display_name;
+        }
+        
+        suggestion.innerHTML = `
+            <div class="font-medium text-sand-900 dark:text-white">${displayText || fullFormattedAddress}</div>
+            ${(city || state || postcode) ? `<div class="text-sm text-sand-500 dark:text-sand-400">${[city, state, postcode].filter(Boolean).join(', ')}</div>` : ''}
+        `;
+        
+        suggestion.dataset.address = fullFormattedAddress;
+        suggestion.addEventListener('click', function() {
+            input.value = fullFormattedAddress;
+            container.classList.add('hidden');
+            currentSuggestions = [];
+        });
+        
+        container.appendChild(suggestion);
+    });
+    
+    container.classList.remove('hidden');
+}
+
+// Additional Participants Management
+let additionalParticipantCount = 0;
+let participantPhotos = {}; // Store photos by participant ID
+
+function addAdditionalParticipant() {
+    additionalParticipantCount++;
+    const participantId = `participant-${additionalParticipantCount}`;
+    const container = document.getElementById('additional-participants-container');
+    
+    const participantCard = document.createElement('div');
+    participantCard.id = participantId;
+    participantCard.className = 'bg-sand-50 dark:bg-sand-900/30 rounded-xl p-6 border-2 border-sand-200 dark:border-sand-700 relative';
+    
+    participantCard.innerHTML = `
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-sand-200 dark:border-sand-700">
+            <h4 class="text-lg font-bold font-serif text-sand-800 dark:text-sand-200">Participant ${additionalParticipantCount}</h4>
+            <button type="button" onclick="removeAdditionalParticipant('${participantId}')" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <span class="text-sm">Remove</span>
+            </button>
+        </div>
+        
+        <div class="space-y-6">
+            <div class="space-y-6">
+                <h5 class="text-sm font-bold text-sand-600 dark:text-sand-400 uppercase">Contact Details</h5>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Full Name *</label>
+                        <input type="text" data-participant-field="name" required class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Email *</label>
+                        <input type="email" data-participant-field="email" required class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Mobile (Text Group) *</label>
+                    <input type="tel" data-participant-field="mobile" required class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                </div>
+                <div class="relative">
+                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Address</label>
+                    <input type="text" data-participant-field="address" placeholder="Start typing your address..." class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                </div>
+            </div>
+            
+            <div class="space-y-6 pt-4">
+                <h5 class="text-sm font-bold text-sand-600 dark:text-sand-400 uppercase">Family Information</h5>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Family Branch *</label>
+                    <select data-participant-field="branch" required class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                        <option value="" disabled selected>Choose Descendant of...</option>
+                        <option>William Johns</option>
+                        <option>L.C. Johns</option>
+                        <option>Alice Walker</option>
+                        <option>Stephen Johns</option>
+                        <option>Roger Johns</option>
+                        <option>Bennie Johns</option>
+                        <option>Larry Johns</option>
+                        <option>Milton Johns</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Birthday</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <select data-participant-birthday-month="${participantId}" class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all" onchange="updateParticipantDays('${participantId}')">
+                            <option value="" disabled selected>Month</option>
+                            <option value="01">January</option>
+                            <option value="02">February</option>
+                            <option value="03">March</option>
+                            <option value="04">April</option>
+                            <option value="05">May</option>
+                            <option value="06">June</option>
+                            <option value="07">July</option>
+                            <option value="08">August</option>
+                            <option value="09">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                        <select data-participant-birthday-day="${participantId}" class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            <option value="" disabled selected>Day</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-sand-500 mb-1 ml-1">Profile Photo (Optional)</label>
+                    <div class="mt-2">
+                        <input type="file" data-participant-photo="${participantId}" accept="image/*" class="hidden" onchange="handleParticipantPhotoUpload(event, '${participantId}')">
+                        <label for="participant-photo-${participantId}" data-participant-photo-label="${participantId}" class="cursor-pointer inline-flex items-center gap-2 px-4 py-3 bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl hover:bg-sand-100 dark:hover:bg-sand-900 transition-colors">
+                            <i data-lucide="camera" class="w-5 h-5 text-sand-500"></i>
+                            <span class="text-sm text-sand-700 dark:text-sand-300">Choose Photo</span>
+                        </label>
+                        <div data-participant-photo-preview="${participantId}" class="mt-3 hidden">
+                            <div class="relative inline-block">
+                                <img data-participant-photo-image="${participantId}" src="" alt="Preview" class="w-24 h-24 object-cover rounded-xl border-2 border-sand-200 dark:border-sand-700">
+                                <button type="button" onclick="removeParticipantPhoto('${participantId}')" class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(participantCard);
+    lucide.createIcons();
+    
+    // Set up label click handler for photo upload
+    const photoLabel = participantCard.querySelector(`[data-participant-photo-label="${participantId}"]`);
+    const photoInput = participantCard.querySelector(`[data-participant-photo="${participantId}"]`);
+    if (photoLabel && photoInput) {
+        photoLabel.setAttribute('for', `participant-photo-${participantId}`);
+        photoInput.id = `participant-photo-${participantId}`;
+    }
+    
+    // Initialize address autocomplete for new participant
+    setTimeout(() => {
+        const participantAddressInput = participantCard.querySelector('[data-participant-field="address"]');
+        if (participantAddressInput && !participantAddressInput.dataset.autocompleteInitialized) {
+            setupAddressAutocomplete(participantAddressInput);
+            participantAddressInput.dataset.autocompleteInitialized = 'true';
+        }
+    }, 100);
+}
+
+function updateParticipantDays(participantId) {
+    const monthSelect = document.querySelector(`[data-participant-birthday-month="${participantId}"]`);
+    const daySelect = document.querySelector(`[data-participant-birthday-day="${participantId}"]`);
+    if (!monthSelect || !daySelect) return;
+    
+    const month = parseInt(monthSelect.value);
+    if (isNaN(month) || month < 1 || month > 12) {
+        daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+        return;
+    }
+    
+    const daysInMonth = new Date(2024, month, 0).getDate(); // Use 2024 (leap year) to get max days
+    
+    daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+    for (let day = 1; day <= daysInMonth; day++) {
+        const option = document.createElement('option');
+        option.value = String(day).padStart(2, '0');
+        option.textContent = day;
+        daySelect.appendChild(option);
+    }
+}
+
+function updatePrimaryDays() {
+    const monthSelect = document.getElementById('birthday-month');
+    const daySelect = document.getElementById('birthday-day');
+    if (!monthSelect || !daySelect) return;
+    
+    const month = parseInt(monthSelect.value);
+    if (isNaN(month) || month < 1 || month > 12) {
+        daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+        return;
+    }
+    
+    const daysInMonth = new Date(2024, month, 0).getDate(); // Use 2024 (leap year) to get max days
+    
+    daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+    for (let day = 1; day <= daysInMonth; day++) {
+        const option = document.createElement('option');
+        option.value = String(day).padStart(2, '0');
+        option.textContent = day;
+        daySelect.appendChild(option);
+    }
+}
+
+function removeAdditionalParticipant(participantId) {
+    const participantCard = document.getElementById(participantId);
+    if (participantCard) {
+        participantCard.remove();
+        delete participantPhotos[participantId];
+    }
+}
+
+function handleParticipantPhotoUpload(event, participantId) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            participantPhotos[participantId] = e.target.result;
+            const previewImage = document.querySelector(`[data-participant-photo-image="${participantId}"]`);
+            const previewContainer = document.querySelector(`[data-participant-photo-preview="${participantId}"]`);
+            if (previewImage) previewImage.src = e.target.result;
+            if (previewContainer) previewContainer.classList.remove('hidden');
+            lucide.createIcons();
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function removeParticipantPhoto(participantId) {
+    participantPhotos[participantId] = null;
+    const photoInput = document.querySelector(`[data-participant-photo="${participantId}"]`);
+    const previewContainer = document.querySelector(`[data-participant-photo-preview="${participantId}"]`);
+    if (photoInput) photoInput.value = '';
+    if (previewContainer) previewContainer.classList.add('hidden');
+    lucide.createIcons();
+}
+
 async function handleRegistration(e) {
     e.preventDefault();
     
@@ -117,49 +734,88 @@ async function handleRegistration(e) {
     submitBtn.disabled = true;
     lucide.createIcons();
     
-    // Get form data
-    const formData = {
+    // Collect all participants (primary + additional)
+    const allParticipants = [];
+    
+    // Get primary registrar data
+    const birthdayMonth = document.getElementById('birthday-month').value;
+    const birthdayDay = document.getElementById('birthday-day').value;
+    const birthday = (birthdayMonth && birthdayDay) ? `${birthdayMonth}/${birthdayDay}` : '';
+    
+    const primaryData = {
         name: document.getElementById('full-name').value,
         email: document.getElementById('email').value,
         mobile: document.getElementById('mobile').value,
-        altPhone: document.getElementById('alt-phone').value || '',
         address: document.getElementById('address').value || '',
         branch: document.getElementById('family-branch').value,
-        parentsNames: document.getElementById('parents-names').value || '',
-        birthday: document.getElementById('birthday').value || '',
-        shirtSize: document.getElementById('shirt-size').value || '',
-        householdMembers: document.getElementById('household-members').value || '',
-        namesAges: document.getElementById('names-ages').value,
+        birthday: birthday,
         profilePhoto: uploadedPhotoData || null,
         signedUp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
+    allParticipants.push(primaryData);
     
-    // Try Supabase first, fall back to localStorage
-    const result = await submitRegistrationToSupabase(formData);
+    // Get additional participants data
+    const additionalContainers = document.querySelectorAll('[id^="participant-"]');
+    additionalContainers.forEach(container => {
+        const participantId = container.id;
+        const partMonth = container.querySelector(`[data-participant-birthday-month="${participantId}"]`).value;
+        const partDay = container.querySelector(`[data-participant-birthday-day="${participantId}"]`).value;
+        const partBirthday = (partMonth && partDay) ? `${partMonth}/${partDay}` : '';
+        
+        const participantData = {
+            name: container.querySelector('[data-participant-field="name"]').value,
+            email: container.querySelector('[data-participant-field="email"]').value,
+            mobile: container.querySelector('[data-participant-field="mobile"]').value,
+            address: container.querySelector('[data-participant-field="address"]').value || '',
+            branch: container.querySelector('[data-participant-field="branch"]').value,
+            birthday: partBirthday,
+            profilePhoto: participantPhotos[participantId] || null,
+            signedUp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        };
+        allParticipants.push(participantData);
+    });
     
-    if (result.fallback) {
-        // Supabase not configured - use localStorage
-        console.log('⚠️ Supabase not configured, saving to localStorage');
-        const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
-        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
-        registrations.push({ id: userId, ...formData });
-        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
-    } else if (result.success) {
-        console.log('✅ Registration saved to Supabase!', result.data);
-    } else {
-        // Supabase error - save to localStorage as backup
-        console.error('❌ Supabase error:', result.error);
-        const userId = formData.name.toLowerCase().replace(/\s+/g, '-');
-        let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
-        registrations.push({ id: userId, ...formData });
-        localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+    // Submit each participant separately
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const participantData of allParticipants) {
+        const result = await submitRegistrationToSupabase(participantData);
+        
+        if (result.fallback) {
+            // Supabase not configured - use localStorage
+            console.log('⚠️ Supabase not configured, saving to localStorage');
+            const userId = participantData.name.toLowerCase().replace(/\s+/g, '-');
+            let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+            registrations.push({ id: userId, ...participantData });
+            localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+            successCount++;
+        } else if (result.success) {
+            console.log('✅ Registration saved to Supabase!', result.data);
+            successCount++;
+        } else {
+            // Supabase error - save to localStorage as backup
+            console.error('❌ Supabase error:', result.error);
+            const userId = participantData.name.toLowerCase().replace(/\s+/g, '-');
+            let registrations = JSON.parse(localStorage.getItem('reunionRegistrations') || '[]');
+            registrations.push({ id: userId, ...participantData });
+            localStorage.setItem('reunionRegistrations', JSON.stringify(registrations));
+            successCount++; // Still count as success since we saved to localStorage
+        }
     }
     
     // Reset form
     e.target.reset();
     uploadedPhotoData = null;
+    participantPhotos = {};
+    additionalParticipantCount = 0;
     const photoPreview = document.getElementById('photo-preview');
     if (photoPreview) photoPreview.classList.add('hidden');
+    
+    // Clear additional participants
+    const additionalContainer = document.getElementById('additional-participants-container');
+    if (additionalContainer) additionalContainer.innerHTML = '';
+    
     submitBtn.innerHTML = originalText;
     submitBtn.disabled = false;
     
@@ -199,15 +855,19 @@ async function handleIdeaSubmit(e) {
         let ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
         ideas.push({ name, idea, created_at: new Date().toISOString() });
         localStorage.setItem('reunionIdeas', JSON.stringify(ideas));
+        allIdeas = ideas; // Update local array
         console.log('💾 Idea saved to localStorage (Supabase not configured)');
     } else if (result.success) {
         console.log('✅ Idea submitted to Supabase successfully!');
+        // Reload ideas to get the new one
+        await loadIdeasForDisplay();
     } else {
         console.error('❌ Failed to submit idea:', result.error);
         // Still save to localStorage as backup
         let ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
         ideas.push({ name, idea, created_at: new Date().toISOString() });
         localStorage.setItem('reunionIdeas', JSON.stringify(ideas));
+        allIdeas = ideas; // Update local array
     }
     
     document.getElementById('idea-success').classList.remove('hidden');
@@ -218,6 +878,218 @@ async function handleIdeaSubmit(e) {
 function resetIdeaForm() {
     document.getElementById('idea-form').reset();
     document.getElementById('idea-success').classList.add('hidden');
+}
+
+// Ideas View Management
+let allIdeas = [];
+let ideaElements = [];
+
+function switchIdeasView(view) {
+    const submitView = document.getElementById('ideas-submit-view');
+    const viewView = document.getElementById('ideas-view-view');
+    const tabSubmit = document.getElementById('tab-submit');
+    const tabView = document.getElementById('tab-view');
+    
+    if (view === 'submit') {
+        submitView.classList.remove('hidden');
+        viewView.classList.add('hidden');
+        tabSubmit.classList.add('bg-brand-600', 'text-white', 'shadow-md');
+        tabSubmit.classList.remove('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
+        tabView.classList.remove('bg-brand-600', 'text-white', 'shadow-md');
+        tabView.classList.add('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
+    } else {
+        submitView.classList.add('hidden');
+        viewView.classList.remove('hidden');
+        tabView.classList.add('bg-brand-600', 'text-white', 'shadow-md');
+        tabView.classList.remove('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
+        tabSubmit.classList.remove('bg-brand-600', 'text-white', 'shadow-md');
+        tabSubmit.classList.add('bg-sand-200', 'dark:bg-sand-800', 'text-sand-700', 'dark:text-sand-300');
+        renderFloatingIdeas();
+    }
+    lucide.createIcons();
+}
+
+async function loadIdeasForDisplay() {
+    const loadingEl = document.getElementById('ideas-loading');
+    const emptyEl = document.getElementById('ideas-empty');
+    const container = document.getElementById('ideas-container');
+    
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (emptyEl) emptyEl.classList.add('hidden');
+    
+    // Try to get ideas from Supabase first
+    const result = await getIdeasFromSupabase();
+    
+    if (result.success && result.data) {
+        allIdeas = result.data;
+    } else if (result.fallback) {
+        // Supabase not configured - use localStorage
+        const ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
+        allIdeas = ideas;
+    } else {
+        // Supabase error - fall back to localStorage
+        const ideas = JSON.parse(localStorage.getItem('reunionIdeas') || '[]');
+        allIdeas = ideas;
+    }
+    
+    if (loadingEl) loadingEl.classList.add('hidden');
+    
+    if (allIdeas.length === 0) {
+        if (emptyEl) emptyEl.classList.remove('hidden');
+    }
+}
+
+// Function to delete all test ideas (can be called from browser console)
+async function deleteAllIdeas() {
+    if (confirm('Are you sure you want to delete ALL ideas? This cannot be undone.')) {
+        // Clear localStorage
+        localStorage.removeItem('reunionIdeas');
+        console.log('✅ Cleared ideas from localStorage');
+        
+        // Try to delete from Supabase if configured
+        const result = await deleteAllIdeasFromSupabase();
+        if (result.success) {
+            console.log('✅ Deleted all ideas from Supabase');
+        } else if (!result.fallback) {
+            console.log('⚠️ Could not delete from Supabase:', result.error);
+        }
+        
+        // Reload ideas display
+        allIdeas = [];
+        if (document.getElementById('ideas-view-view') && !document.getElementById('ideas-view-view').classList.contains('hidden')) {
+            renderFloatingIdeas();
+        }
+        
+        alert('All ideas have been deleted.');
+    }
+}
+
+function renderFloatingIdeas() {
+    const container = document.getElementById('ideas-container');
+    if (!container) return;
+    
+    // Clear existing ideas
+    container.innerHTML = '';
+    ideaElements = [];
+    
+    if (allIdeas.length === 0) {
+        return;
+    }
+    
+    // Create floating idea cards
+    allIdeas.forEach((idea, index) => {
+        const ideaCard = document.createElement('div');
+        ideaCard.className = 'idea-card absolute cursor-pointer transition-all duration-300 group';
+        
+        // Random starting position (avoid edges)
+        const left = Math.random() * 70 + 10; // 10% to 80%
+        const top = Math.random() * 70 + 10; // 10% to 80%
+        
+        // Random rotation
+        const rotation = (Math.random() - 0.5) * 15; // -7.5 to 7.5 degrees
+        
+        // Random size variation
+        const size = Math.random() * 0.25 + 0.9; // 0.9 to 1.15 scale
+        
+        ideaCard.style.left = `${left}%`;
+        ideaCard.style.top = `${top}%`;
+        ideaCard.style.setProperty('--rotation', `${rotation}deg`);
+        ideaCard.style.setProperty('--scale', size);
+        ideaCard.style.transform = `rotate(${rotation}deg) scale(${size})`;
+        ideaCard.style.zIndex = index;
+        
+        // Create card content
+        ideaCard.innerHTML = `
+            <div class="bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/30 dark:to-brand-800/30 rounded-2xl p-4 shadow-lg border-2 border-brand-200 dark:border-brand-700/50 backdrop-blur-sm min-w-[200px] max-w-[280px] transition-all duration-300 group-hover:shadow-2xl group-hover:border-brand-400 dark:group-hover:border-brand-500">
+                <div class="flex items-start gap-2">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wide mb-2 truncate group-hover:whitespace-normal">${escapeHtml(idea.name || 'Anonymous')}</p>
+                        <p class="text-sm text-sand-700 dark:text-sand-300 line-clamp-3 group-hover:line-clamp-none group-hover:whitespace-normal">${escapeHtml(idea.idea)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(ideaCard);
+        ideaElements.push(ideaCard);
+        
+        // Add floating animation
+        animateIdeaCard(ideaCard);
+    });
+    
+    lucide.createIcons();
+}
+
+function animateIdeaCard(card) {
+    // Gentle floating animation using CSS animations
+    const duration = 15 + Math.random() * 10; // 15-25 seconds
+    const delay = Math.random() * 2;
+    
+    // Get the initial transform values
+    const initialTransform = card.style.transform;
+    const rotationMatch = initialTransform.match(/rotate\(([^)]+)\)/);
+    const scaleMatch = initialTransform.match(/scale\(([^)]+)\)/);
+    const rotation = rotationMatch ? rotationMatch[1] : '0deg';
+    const scale = scaleMatch ? scaleMatch[1] : '1';
+    
+    // Store original scale for hover restoration
+    card.dataset.originalScale = scale;
+    
+    // Set CSS variables for animation
+    card.style.setProperty('--rotation', rotation);
+    card.style.setProperty('--scale', scale);
+    
+    // Use CSS animation instead of inline transform
+    card.style.transform = '';
+    card.style.animation = `float-idea ${duration}s ease-in-out ${delay}s infinite`;
+    
+    // Add hover effect
+    card.addEventListener('mouseenter', function() {
+        this.style.animationPlayState = 'paused';
+        const currentRotation = this.style.getPropertyValue('--rotation') || '0deg';
+        this.style.transform = `rotate(${currentRotation}) scale(1.15)`;
+        this.style.zIndex = '1000';
+    });
+    
+    card.addEventListener('mouseleave', function() {
+        this.style.animationPlayState = 'running';
+        this.style.transform = '';
+        this.style.zIndex = '';
+    });
+}
+
+// Add CSS animation for floating
+if (!document.getElementById('idea-float-styles')) {
+    const style = document.createElement('style');
+    style.id = 'idea-float-styles';
+    style.textContent = `
+        @keyframes float-idea {
+            0%, 100% {
+                transform: translate(0, 0) rotate(var(--rotation, 0deg)) scale(var(--scale, 1));
+            }
+            25% {
+                transform: translate(10px, -15px) rotate(calc(var(--rotation, 0deg) + 2deg)) scale(var(--scale, 1));
+            }
+            50% {
+                transform: translate(-8px, -20px) rotate(calc(var(--rotation, 0deg) - 2deg)) scale(var(--scale, 1));
+            }
+            75% {
+                transform: translate(-10px, -10px) rotate(calc(var(--rotation, 0deg) + 1deg)) scale(var(--scale, 1));
+            }
+        }
+        .idea-card {
+            --rotation: 0deg;
+            --scale: 1;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // 5. Modal Logic
@@ -315,14 +1187,21 @@ function openModal(eventId) {
     if(!data) return;
     document.getElementById('modal-title').textContent = data.title;
     document.getElementById('modal-time').textContent = data.time;
-    document.getElementById('modal-desc').textContent = data.desc;
-    document.getElementById('modal-loc').textContent = data.location;
-    document.getElementById('modal-extra').textContent = data.extra;
+    document.getElementById('modal-desc').textContent = data.desc || '';
+    document.getElementById('modal-loc').textContent = data.location || 'TBD';
+    const extraElement = document.getElementById('modal-extra');
+    if (extraElement) {
+        extraElement.textContent = data.extra || '';
+        extraElement.style.display = data.extra ? 'block' : 'none';
+    }
     document.getElementById('event-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    lucide.createIcons();
 }
 
 function closeModal() {
     document.getElementById('event-modal').classList.add('hidden');
+    document.body.style.overflow = '';
 }
 
 // 6. Gallery Logic
@@ -531,22 +1410,55 @@ const userData = {
     }
 };
 
+function getZodiacSign(month, day) {
+    if (!month || !day) return null;
+    const m = parseInt(month);
+    const d = parseInt(day);
+    
+    if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return 'Aries';
+    if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return 'Taurus';
+    if ((m === 5 && d >= 21) || (m === 6 && d <= 20)) return 'Gemini';
+    if ((m === 6 && d >= 21) || (m === 7 && d <= 22)) return 'Cancer';
+    if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return 'Leo';
+    if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return 'Virgo';
+    if ((m === 9 && d >= 23) || (m === 10 && d <= 22)) return 'Libra';
+    if ((m === 10 && d >= 23) || (m === 11 && d <= 21)) return 'Scorpio';
+    if ((m === 11 && d >= 22) || (m === 12 && d <= 21)) return 'Sagittarius';
+    if ((m === 12 && d >= 22) || (m === 1 && d <= 19)) return 'Capricorn';
+    if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return 'Aquarius';
+    if ((m === 2 && d >= 19) || (m === 3 && d <= 20)) return 'Pisces';
+    return null;
+}
+
 function getUserData(userId) {
     // Check cachedRegistrations first (from Supabase)
     if (cachedRegistrations && cachedRegistrations.length > 0) {
         const registration = cachedRegistrations.find(r => r.id === userId);
         if (registration) {
-            // Format birthday nicely
+            // Format birthday as MM/DD
             let birthdayDisplay = 'Not provided';
+            let zodiacSign = null;
             if (registration.birthday) {
-                const bday = new Date(registration.birthday);
-                birthdayDisplay = bday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                // Birthday is stored as MM/DD or could be a date string
+                if (registration.birthday.includes('/')) {
+                    const [month, day] = registration.birthday.split('/');
+                    birthdayDisplay = `${month}/${day}`;
+                    zodiacSign = getZodiacSign(month, day);
+                } else {
+                    // Legacy date format
+                    const bday = new Date(registration.birthday);
+                    const month = String(bday.getMonth() + 1).padStart(2, '0');
+                    const day = String(bday.getDate()).padStart(2, '0');
+                    birthdayDisplay = `${month}/${day}`;
+                    zodiacSign = getZodiacSign(month, day);
+                }
             }
             return {
                 name: registration.name,
                 branch: registration.branch,
                 signedUp: new Date(registration.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 birthday: birthdayDisplay,
+                zodiacSign: zodiacSign,
                 profilePhoto: registration.profile_photo || null
             };
         }
@@ -557,23 +1469,48 @@ function getUserData(userId) {
     const registration = registrations.find(r => r.id === userId);
     
     if (registration) {
-        // Format birthday nicely
+        // Format birthday as MM/DD
         let birthdayDisplay = 'Not provided';
+        let zodiacSign = null;
         if (registration.birthday) {
-            const bday = new Date(registration.birthday);
-            birthdayDisplay = bday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            // Birthday is stored as MM/DD or could be a date string
+            if (registration.birthday.includes('/')) {
+                const [month, day] = registration.birthday.split('/');
+                birthdayDisplay = `${month}/${day}`;
+                zodiacSign = getZodiacSign(month, day);
+            } else {
+                // Legacy date format
+                const bday = new Date(registration.birthday);
+                const month = String(bday.getMonth() + 1).padStart(2, '0');
+                const day = String(bday.getDate()).padStart(2, '0');
+                birthdayDisplay = `${month}/${day}`;
+                zodiacSign = getZodiacSign(month, day);
+            }
         }
         return {
             name: registration.name,
             branch: registration.branch,
             signedUp: registration.signedUp,
             birthday: birthdayDisplay,
+            zodiacSign: zodiacSign,
             profilePhoto: registration.profilePhoto || null
         };
     }
     
     // Fall back to hardcoded userData
-    return userData[userId];
+    const user = userData[userId];
+    if (user && user.birthday) {
+        // Parse hardcoded birthday format
+        const bday = new Date(user.birthday);
+        const month = String(bday.getMonth() + 1).padStart(2, '0');
+        const day = String(bday.getDate()).padStart(2, '0');
+        return {
+            ...user,
+            birthday: `${month}/${day}`,
+            zodiacSign: getZodiacSign(month, day)
+        };
+    }
+    return user;
 }
 
 function openUserModal(userId) {
@@ -589,6 +1526,16 @@ function openUserModal(userId) {
     document.getElementById('user-modal-branch').textContent = user.branch;
     document.getElementById('user-modal-date').textContent = user.signedUp;
     document.getElementById('user-modal-birthday').textContent = user.birthday || 'Not provided';
+    
+    // Display zodiac sign
+    const zodiacElement = document.getElementById('user-modal-zodiac');
+    if (zodiacElement) {
+        if (user.zodiacSign) {
+            zodiacElement.textContent = user.zodiacSign;
+        } else {
+            zodiacElement.textContent = '';
+        }
+    }
     
     // Handle profile photo
     if (user.profilePhoto) {
@@ -869,8 +1816,26 @@ async function renderUSMap() {
             }
         });
         
+        // Preserve aspect ratio and ensure proper display as US map
+        // Keep original viewBox if it exists, otherwise set it
+        const existingViewBox = svg.getAttribute('viewBox');
+        if (!existingViewBox || existingViewBox !== '0 0 959 593') {
+            svg.setAttribute('viewBox', '0 0 959 593');
+        }
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        
+        // Remove fixed dimensions to allow responsive scaling
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        
+        // Set styles for proper display
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.display = 'block';
+        svg.style.maxWidth = '100%';
+        
         // Add class for dark mode
-        svg.setAttribute('class', 'w-full h-auto dark:[&_path:not([fill=\"#4d7c0f\"]):not([fill=\"#65a30d\"])]:fill-sand-700');
+        svg.setAttribute('class', 'w-full h-full dark:[&_path:not([fill=\"#4d7c0f\"]):not([fill=\"#65a30d\"])]:fill-sand-700');
         
         // Insert SVG and tooltip
         container.innerHTML = '';

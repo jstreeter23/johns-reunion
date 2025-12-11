@@ -600,8 +600,8 @@ function addAdditionalParticipant() {
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <select data-participant-birthday-day="${participantId}" class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
-                            <option value="" disabled selected>Day</option>
+                        <select data-participant-birthday-day="${participantId}" disabled class="w-full bg-white dark:bg-sand-800 border border-sand-200 dark:border-sand-600 rounded-xl px-4 py-3 outline-none focus:border-brand-500 transition-all">
+                            <option value="">Day</option>
                         </select>
                     </div>
                 </div>
@@ -655,13 +655,25 @@ function updateParticipantDays(participantId) {
     
     const month = parseInt(monthSelect.value);
     if (isNaN(month) || month < 1 || month > 12) {
-        daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+        daySelect.innerHTML = '<option value="">Day</option>';
+        daySelect.disabled = true;
         return;
     }
     
     const daysInMonth = new Date(2024, month, 0).getDate(); // Use 2024 (leap year) to get max days
     
-    daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+    daySelect.innerHTML = '';
+    daySelect.disabled = false;
+    
+    // Add placeholder
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Day';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    daySelect.appendChild(placeholder);
+    
+    // Add day options
     for (let day = 1; day <= daysInMonth; day++) {
         const option = document.createElement('option');
         option.value = String(day).padStart(2, '0');
@@ -677,13 +689,25 @@ function updatePrimaryDays() {
     
     const month = parseInt(monthSelect.value);
     if (isNaN(month) || month < 1 || month > 12) {
-        daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+        daySelect.innerHTML = '<option value="">Day</option>';
+        daySelect.disabled = true;
         return;
     }
     
     const daysInMonth = new Date(2024, month, 0).getDate(); // Use 2024 (leap year) to get max days
     
-    daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+    daySelect.innerHTML = '';
+    daySelect.disabled = false;
+    
+    // Add placeholder
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Day';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    daySelect.appendChild(placeholder);
+    
+    // Add day options
     for (let day = 1; day <= daysInMonth; day++) {
         const option = document.createElement('option');
         option.value = String(day).padStart(2, '0');
@@ -1160,8 +1184,9 @@ function renderEventsTimeline() {
         const timeParts = event.time.split('•');
         const timeOnly = timeParts.length > 1 ? timeParts[1].trim() : '';
         
+        const eventCardId = `event-card-${event.id.replace(/[^a-zA-Z0-9]/g, '-')}`;
         html += `
-            <div class="relative pl-24 py-6 group cursor-pointer" onclick="openModal('${event.id}')">
+            <div id="${eventCardId}" class="relative pl-24 py-6 group cursor-pointer event-card" data-event-id="${event.id}">
                 <div class="absolute left-2 top-6 w-12 h-12 ${isFirst ? 'bg-brand-600 text-white' : 'bg-white dark:bg-sand-700 text-sand-800 dark:text-sand-200'} rounded-xl flex flex-col items-center justify-center shadow-lg border-4 border-sand-50 dark:border-sand-900 z-10">
                     <span class="text-[10px] uppercase font-bold">${month}</span>
                     <span class="text-lg font-bold leading-none">${day}</span>
@@ -1180,24 +1205,64 @@ function renderEventsTimeline() {
     
     timeline.innerHTML = html;
     lucide.createIcons();
+    
+    // Add click event listeners to all event cards
+    const eventCards = timeline.querySelectorAll('.event-card');
+    eventCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const eventId = this.dataset.eventId;
+            if (eventId) {
+                openModal(eventId);
+            }
+        });
+    });
 }
 
 function openModal(eventId) {
+    console.log('openModal called with eventId:', eventId);
+    console.log('Available events:', Object.keys(eventData));
+    
     const data = eventData[eventId];
-    if(!data) return;
-    document.getElementById('modal-title').textContent = data.title;
-    document.getElementById('modal-time').textContent = data.time;
-    document.getElementById('modal-desc').textContent = data.desc || '';
-    document.getElementById('modal-loc').textContent = data.location || 'TBD';
-    const extraElement = document.getElementById('modal-extra');
-    if (extraElement) {
-        extraElement.textContent = data.extra || '';
-        extraElement.style.display = data.extra ? 'block' : 'none';
+    if(!data) {
+        console.error('Event not found:', eventId, 'Available:', Object.keys(eventData));
+        return;
     }
-    document.getElementById('event-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    lucide.createIcons();
+    
+    console.log('Opening modal for event:', data);
+    
+    // Update modal content
+    const titleEl = document.getElementById('modal-title');
+    const timeEl = document.getElementById('modal-time');
+    const descEl = document.getElementById('modal-desc');
+    const locEl = document.getElementById('modal-loc');
+    const extraEl = document.getElementById('modal-extra');
+    
+    if (titleEl) titleEl.textContent = data.title || 'Event';
+    if (timeEl) timeEl.textContent = data.time || 'TBD';
+    if (descEl) {
+        descEl.textContent = data.desc || '';
+        descEl.style.display = data.desc ? 'block' : 'none';
+    }
+    if (locEl) locEl.textContent = data.location || 'TBD';
+    if (extraEl) {
+        extraEl.textContent = data.extra || '';
+        extraEl.style.display = data.extra ? 'block' : 'none';
+    }
+    
+    // Show modal
+    const modal = document.getElementById('event-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        lucide.createIcons();
+    } else {
+        console.error('Event modal element not found!');
+    }
 }
+
+// Make openModal globally accessible
+window.openModal = openModal;
 
 function closeModal() {
     document.getElementById('event-modal').classList.add('hidden');
@@ -1376,8 +1441,9 @@ function renderCalendar() {
         
         const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
         
+        const dayCellId = hasEvent ? `calendar-day-${dateStr}-${eventId.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
         calendarHTML += `
-            <div class="bg-white dark:bg-sand-800 p-2 min-h-[80px] border-b border-sand-100 dark:border-sand-700 ${hasEvent ? 'cursor-pointer hover:bg-sand-50 dark:hover:bg-sand-700 transition-colors' : ''}" ${hasEvent ? `onclick="openModal('${eventId}')"` : ''}>
+            <div ${dayCellId ? `id="${dayCellId}"` : ''} class="bg-white dark:bg-sand-800 p-2 min-h-[80px] border-b border-sand-100 dark:border-sand-700 ${hasEvent ? 'cursor-pointer hover:bg-sand-50 dark:hover:bg-sand-700 transition-colors calendar-event-day' : ''}" ${hasEvent ? `data-event-id="${eventId}"` : ''}>
                 <div class="flex items-start justify-between">
                     <span class="text-sm font-medium ${isToday ? 'bg-brand-600 text-white rounded-full w-7 h-7 flex items-center justify-center' : 'text-sand-700 dark:text-sand-300'}">${day}</span>
                     ${hasEvent ? '<div class="w-2 h-2 bg-brand-600 rounded-full"></div>' : ''}
@@ -1390,6 +1456,18 @@ function renderCalendar() {
     calendarHTML += '</div>';
     calendarGrid.innerHTML = calendarHTML;
     lucide.createIcons();
+    
+    // Add click event listeners to calendar event days
+    const calendarEventDays = calendarGrid.querySelectorAll('.calendar-event-day');
+    calendarEventDays.forEach(day => {
+        day.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const eventId = this.dataset.eventId;
+            if (eventId) {
+                openModal(eventId);
+            }
+        });
+    });
 }
 
 // 10. User Modal Logic

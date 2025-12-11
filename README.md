@@ -16,6 +16,7 @@ A modern, responsive website built for the upcoming Johns Family Reunion. This p
 * **🌗 Dark Mode:** Fully supported dark mode that respects user system preferences and includes a manual toggle.
 * **📱 Mobile-First:** Responsive navigation that adapts from a desktop header to a mobile drawer menu.
 * **⏳ Countdown Ticker:** Dynamic countdown showing days until the reunion.
+* **🔒 Privacy-Focused:** Birthday collection limited to month/day (no year), with zodiac sign display for fun.
 
 ### Photo Gallery
 * **📸 Infinite Loop Gallery:** Horizontal snap-scroll gallery with family photos that loops continuously.
@@ -26,18 +27,32 @@ A modern, responsive website built for the upcoming Johns Family Reunion. This p
 ### Calendar & Events
 * **📅 Dual View Calendar:** Toggle between timeline view and calendar grid view.
 * **🔄 Dynamic Events:** Events load from Supabase in real-time.
-* **📋 Event Modals:** Click any event to see full details in a pop-up.
+* **📋 Event Modals:** Click any event (from timeline or calendar) to see full details in a modal with date, time, location, description, and additional info.
+* **📆 Navigation:** "Events" tab in navigation (renamed from "Calendar").
 
 ### Attendance Tracking
 * **👥 Scrollable Table:** Fixed-height table that scrolls internally (page doesn't scroll).
 * **🏷️ Branch Filtering:** Filter attendees by family branch (William Johns, Milton Johns, etc.).
 * **📊 Live Count:** Shows total attendees or filtered count dynamically.
-* **👤 User Profiles:** Click any attendee to see their profile modal with birthday and photo.
+* **👤 User Profiles:** Click any attendee to see their profile modal with:
+  - Family Branch
+  - Birthday (MM/DD format for privacy) and Zodiac Sign
+  - Sign-up Date
+  - Profile Photo (if provided)
+* **🗺️ Interactive Map:** Visual map showing which US states have registered attendees, with hover tooltips showing attendee names.
 
 ### Forms & Submissions
-* **📝 Registration Form:** Complete participant form with shirt sizes, birthday, and optional photo upload.
+* **📝 Registration Form:** Streamlined participant registration with:
+  - Contact information (name, email, mobile, address)
+  - Family branch selection
+  - Birthday (month/day only for privacy - no year)
+  - Optional profile photo upload
+  - **Multiple Participants:** Register additional family members on the same form - each participant is saved as a separate registration
+* **📍 Address Autocomplete:** Free address autocomplete using Photon/Nominatim APIs (no API key required), limited to US addresses only
 * **✅ Visual Confirmations:** Beautiful success overlays after form submissions (no browser alerts).
-* **💡 Ideas Submission:** Form for family members to submit activity ideas with instant feedback.
+* **💡 Ideas Submission:** Two-tab interface:
+  - **Share Idea Tab:** Submit new ideas with name and idea text
+  - **View Ideas Tab:** Interactive floating display of all submitted ideas - hover to see full details, helps avoid duplicates
 * **🔄 Real-time Sync:** All submissions save to Supabase and appear immediately.
 
 ## 🛠️ Tech Stack
@@ -47,6 +62,7 @@ A modern, responsive website built for the upcoming Johns Family Reunion. This p
 * **Styling:** Tailwind CSS (via CDN for rapid prototyping)
 * **Icons:** Lucide Icons
 * **Fonts:** Google Fonts (Merriweather & Inter)
+* **Address Autocomplete:** Photon API & Nominatim (OpenStreetMap) - free, no API key required
 
 **Backend**
 * **Database:** Supabase (PostgreSQL)
@@ -65,9 +81,10 @@ johns-reunion/
 ├── styles.css          # Custom CSS overrides (scrollbar, etc.)
 ├── home.html           # Landing page with gallery and countdown
 ├── calendar.html       # Event schedule (timeline + calendar views)
-├── ideas.html          # Idea submission form
-├── attendance.html     # Attendee list with branch filtering
-├── register.html       # Registration form
+├── ideas.html          # Ideas page with two tabs (Share/View)
+├── attendance.html     # Attendee list with map and table views
+├── register.html       # Registration form with multiple participants support
+├── us-map.svg          # US map SVG for attendance visualization
 └── Photos/             # Family photo gallery images
     ├── Curtis and Willie Alice.png
     ├── IMG_9092.jpg
@@ -93,6 +110,8 @@ The website uses Supabase as its backend for storing registrations, ideas, and e
 
 ### Step 2: Create Database Tables
 
+**Important:** The database schema has been updated. Use the SQL below which reflects the current registration form structure.
+
 1. In your Supabase dashboard, go to **SQL Editor**
 2. Click **New query**
 3. Paste the following SQL and click **Run**:
@@ -104,14 +123,9 @@ CREATE TABLE registrations (
     name TEXT NOT NULL,
     email TEXT NOT NULL,
     mobile TEXT NOT NULL,
-    alt_phone TEXT,
     address TEXT,
     branch TEXT NOT NULL,
-    parents_names TEXT,
-    birthday DATE,
-    shirt_size TEXT,
-    household_members INTEGER,
-    names_ages TEXT,
+    birthday TEXT,  -- Stored as MM/DD format (no year for privacy)
     profile_photo TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -193,7 +207,14 @@ const SUPABASE_ANON_KEY = 'your-anon-key-here';
 1. Go to **Table Editor** → `events`
 2. Click **Insert row** to add new events
 3. Fill in: `title`, `event_date` (YYYY-MM-DD), `event_time`, `location`, `description`, `extra_info`
-4. Events will automatically appear on the calendar
+4. Events will automatically appear on the calendar and timeline
+5. Click any event to view full details in a modal
+
+#### Delete Test Ideas
+To clear test ideas from the database:
+1. Go to **Table Editor** → `ideas`
+2. Select rows to delete, or use SQL: `DELETE FROM ideas;`
+3. Alternatively, use browser console: `deleteAllIdeas()` (clears both Supabase and localStorage)
 
 ---
 
@@ -206,16 +227,13 @@ const SUPABASE_ANON_KEY = 'your-anon-key-here';
 | name | TEXT | Full name (required) |
 | email | TEXT | Email address (required) |
 | mobile | TEXT | Mobile phone (required) |
-| alt_phone | TEXT | Alternative phone |
-| address | TEXT | Street address |
+| address | TEXT | Street address (with autocomplete support) |
 | branch | TEXT | Family branch (required) |
-| parents_names | TEXT | Parents' names |
-| birthday | DATE | Date of birth |
-| shirt_size | TEXT | S, M, L, XL, 2XL, 3XL |
-| household_members | INTEGER | Number attending |
-| names_ages | TEXT | Names and ages of household |
+| birthday | TEXT | Birthday in MM/DD format (no year for privacy) |
 | profile_photo | TEXT | Base64 encoded photo |
 | created_at | TIMESTAMP | Registration timestamp |
+
+**Note:** Each registration represents a single participant. When registering multiple family members, each person is saved as a separate registration record.
 
 ### `ideas` Table
 | Column | Type | Description |
@@ -259,14 +277,47 @@ git push origin main
 
 ---
 
-## 🔒 Security Notes
+## 🔒 Security & Privacy Notes
 
 - The current setup uses public (anon) policies for simplicity
+- **Privacy Features:**
+  - Birthdays stored as MM/DD only (no year) to protect personal information
+  - Zodiac signs calculated and displayed for fun without revealing age
 - For production, consider adding:
   - Email verification for registrations
   - Rate limiting on form submissions
   - More restrictive RLS policies
   - Admin authentication for data management
+
+## 🆕 Recent Updates
+
+### Registration Form Improvements
+- ✅ Removed shirt size field
+- ✅ Removed alt phone field
+- ✅ Removed attendance section (household members, names & ages)
+- ✅ Removed family information section
+- ✅ Streamlined to "Information" section with essential fields only
+- ✅ Added support for registering multiple participants on one form
+- ✅ Birthday changed to month/day only (privacy-focused)
+- ✅ Added zodiac sign calculation and display
+
+### Ideas Page Enhancements
+- ✅ Added two-tab interface (Share Idea / View Ideas)
+- ✅ Interactive floating ideas display with hover effects
+- ✅ Helps users see existing ideas to avoid duplicates
+
+### Address Autocomplete
+- ✅ Free address autocomplete (no API key required)
+- ✅ Uses Photon API and Nominatim (OpenStreetMap) with fallbacks
+- ✅ Limited to US addresses only
+- ✅ Validated address suggestions as you type
+
+### UI/UX Improvements
+- ✅ Navigation: "Calendar" renamed to "Events"
+- ✅ User modal: Reordered to show Birthday/Zodiac second, Sign-up date third
+- ✅ Event modal: Enhanced to show full details similar to user modal
+- ✅ Fixed birthday day picklist selection issue
+- ✅ Improved event click handlers for timeline and calendar views
 
 ---
 
